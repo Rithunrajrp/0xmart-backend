@@ -1,0 +1,63 @@
+{
+    "id": "c2a1b8e3-5d4f-4e6a-8b7c-9d0e1f2a3b4c",
+    "name": "0xMart - Local",
+    "values": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:3000",
+            "type": "default",
+            "enabled": true
+        },
+        {
+            "key": "accessToken",
+            "value": "",
+            "type": "secret",
+            "enabled": true
+        },
+        {
+            "key": "adminToken",
+            "value": "",
+            "type": "secret",
+            "enabled": true
+        },
+        {
+            "key": "refreshToken",
+            "value": "",
+            "type": "secret",
+            "enabled": true
+        },
+        {
+            "key": "userId",
+            "value": "",
+            "type": "default",
+            "enabled": true
+        },
+        {
+            "key": "walletId",
+            "value": "",
+            "type": "default",
+            "enabled": true
+        },
+        {
+            "key": "productId",
+            "value": "",
+            "type": "default",
+            "enabled": true
+        },
+        {
+            "key": "orderId",
+            "value": "",
+            "type": "default",
+            "enabled": true
+        },
+        {
+            "key": "purchaseId",
+            "value": "",
+            "type": "default",
+            "enabled": true
+        }
+    ],
+    "_postman_variable_scope": "environment",
+    "_postman_exported_at": "2024-07-26T12:00:00.000Z",
+    "_postman_exported_using": "Gemini Code Assist"
+}
