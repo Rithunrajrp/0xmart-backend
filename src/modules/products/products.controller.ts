@@ -33,7 +33,6 @@ export class ProductsController {
 
   @Post()
   @ApiBearerAuth()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create new product (Admin only)' })
@@ -87,7 +86,6 @@ export class ProductsController {
 
   @Patch(':id')
   @ApiBearerAuth()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Update product (Admin only)' })
@@ -98,7 +96,6 @@ export class ProductsController {
 
   @Delete(':id')
   @ApiBearerAuth()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Deactivate product (Admin only)' })

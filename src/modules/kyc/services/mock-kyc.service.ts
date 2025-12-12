@@ -45,7 +45,6 @@ export class MockKycService {
   }
 
   getApplicantStatus(applicantId: string) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const applicant = this.mockApplicants.get(applicantId);
 
     if (!applicant) {
@@ -57,21 +56,17 @@ export class MockKycService {
     }
 
     return {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       reviewStatus: applicant.status,
       reviewResult:
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         applicant.status === 'APPROVED' ? { reviewAnswer: 'GREEN' } : null,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+
       moderationComment: applicant.comment || null,
     };
   }
 
   approveApplicant(applicantId: string) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const applicant = this.mockApplicants.get(applicantId);
     if (applicant) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       applicant.status = 'APPROVED';
       this.mockApplicants.set(applicantId, applicant);
       this.logger.log(`Mock applicant approved: ${applicantId}`);
@@ -79,12 +74,10 @@ export class MockKycService {
   }
 
   rejectApplicant(applicantId: string, reason: string) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const applicant = this.mockApplicants.get(applicantId);
     if (applicant) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       applicant.status = 'REJECTED';
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
       applicant.comment = reason;
       this.mockApplicants.set(applicantId, applicant);
       this.logger.log(`Mock applicant rejected: ${applicantId}`);
@@ -92,12 +85,10 @@ export class MockKycService {
   }
 
   resetApplicant(applicantId: string) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const applicant = this.mockApplicants.get(applicantId);
     if (applicant) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       applicant.status = 'PENDING';
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
       applicant.comment = null;
       this.mockApplicants.set(applicantId, applicant);
       this.logger.log(`Mock applicant reset: ${applicantId}`);

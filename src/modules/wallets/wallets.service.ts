@@ -47,6 +47,7 @@ export class WalletsService {
     const { address } = await this.addressGenerator.generateDepositAddress(
       userId,
       walletCount,
+      network, // Pass network to generate appropriate address type
     );
 
     // Create wallet

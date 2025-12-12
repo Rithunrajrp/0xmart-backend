@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { StablecoinType } from '@prisma/client';
 
@@ -15,6 +22,11 @@ class ProductPriceDto {
 }
 
 export class CreateProductDto {
+  @ApiProperty({ example: 'uuid-of-seller', description: 'Seller ID' })
+  @IsString()
+  @IsNotEmpty()
+  sellerId: string;
+
   @ApiProperty({ example: 'Premium Coffee Beans' })
   @IsString()
   @IsNotEmpty()

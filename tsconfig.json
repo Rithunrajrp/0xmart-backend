@@ -21,5 +21,15 @@
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
     "typeRoots": ["./src/types", "./node_modules/@types"]
-  }
+  },
+  "include": [
+    "src/**/*",
+    "prisma/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "solana-program",
+    "smart-contracts"
+  ]
 }

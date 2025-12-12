@@ -1,0 +1,24 @@
+{
+  "name": "oxmart-sui-contracts",
+  "version": "1.0.0",
+  "description": "0xMart Payment Contract for Sui Blockchain",
+  "scripts": {
+    "build": "sui move build",
+    "test": "sui move test",
+    "deploy:testnet": "ts-node scripts/deploy.ts --network=testnet",
+    "deploy:mainnet": "ts-node scripts/deploy.ts --network=mainnet",
+    "add-tokens:testnet": "ts-node scripts/add-tokens.ts --network=testnet",
+    "add-tokens:mainnet": "ts-node scripts/add-tokens.ts --network=mainnet"
+  },
+  "dependencies": {
+    "@mysten/sui.js": "^0.54.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,7 +1,9 @@
 import {
   Controller,
   Get,
+  Post,
   Put,
+  Delete,
   Body,
   Param,
   Query,
@@ -15,20 +17,27 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
+import { UserAddressesService } from './user-addresses.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { CreateAddressDto } from './dto/create-address.dto';
+import { UpdateAddressDto } from './dto/update-address.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole, UserStatus, KYCStatus } from '@prisma/client';
+import { UserRole, UserStatus, KYCStatus, AddressType } from '@prisma/client';
 import { UserWithWalletsEntity } from './entities/user.entity';
+import { UserAddressEntity } from './entities/user-address.entity';
 
 @ApiTags('users')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly userAddressesService: UserAddressesService,
+  ) {}
 
   @Get('me')
   @ApiOperation({ summary: 'Get current user profile' })
@@ -95,5 +104,68 @@ export class UsersController {
   @ApiResponse({ status: 200 })
   async reactivateUser(@Param('id') id: string) {
     return this.usersService.reactivateUser(id);
+  }
+
+  // Address management routes
+  @Get('me/addresses')
+  @ApiOperation({ summary: 'Get user addresses' })
+  @ApiQuery({ name: 'type', required: false, enum: AddressType })
+  @ApiResponse({ status: 200, type: [UserAddressEntity] })
+  async getAddresses(
+    @CurrentUser() user: { id: string },
+    @Query('type') type?: AddressType,
+  ) {
+    return this.userAddressesService.findAll(user.id, type);
+  }
+
+  @Get('me/addresses/:id')
+  @ApiOperation({ summary: 'Get address by ID' })
+  @ApiResponse({ status: 200, type: UserAddressEntity })
+  async getAddress(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+  ) {
+    return this.userAddressesService.findOne(user.id, id);
+  }
+
+  @Post('me/addresses')
+  @ApiOperation({ summary: 'Create new address' })
+  @ApiResponse({ status: 201, type: UserAddressEntity })
+  async createAddress(
+    @CurrentUser() user: { id: string },
+    @Body() createAddressDto: CreateAddressDto,
+  ) {
+    return this.userAddressesService.create(user.id, createAddressDto);
+  }
+
+  @Put('me/addresses/:id')
+  @ApiOperation({ summary: 'Update address' })
+  @ApiResponse({ status: 200, type: UserAddressEntity })
+  async updateAddress(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+    @Body() updateAddressDto: UpdateAddressDto,
+  ) {
+    return this.userAddressesService.update(user.id, id, updateAddressDto);
+  }
+
+  @Delete('me/addresses/:id')
+  @ApiOperation({ summary: 'Delete address' })
+  @ApiResponse({ status: 200 })
+  async deleteAddress(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+  ) {
+    return this.userAddressesService.remove(user.id, id);
+  }
+
+  @Put('me/addresses/:id/default')
+  @ApiOperation({ summary: 'Set address as default' })
+  @ApiResponse({ status: 200, type: UserAddressEntity })
+  async setDefaultAddress(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+  ) {
+    return this.userAddressesService.setDefault(user.id, id);
   }
 }

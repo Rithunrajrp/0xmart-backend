@@ -114,6 +114,96 @@ export class WithdrawalProcessorService {
         decimals: 18,
       },
     },
+    AVALANCHE: {
+      USDT: {
+        address: '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7',
+        decimals: 6,
+      },
+      USDC: {
+        address: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',
+        decimals: 6,
+      },
+      DAI: {
+        address: '0xd586E7F844cEa2F87f50152665BCbc2C279D8d70',
+        decimals: 18,
+      },
+      BUSD: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 18,
+      },
+    },
+    BASE: {
+      USDT: {
+        address: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2',
+        decimals: 6,
+      },
+      USDC: {
+        address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+        decimals: 6,
+      },
+      DAI: {
+        address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb',
+        decimals: 18,
+      },
+      BUSD: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 18,
+      },
+    },
+    SUI: {
+      USDT: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 9,
+      },
+      USDC: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 9,
+      },
+      DAI: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 9,
+      },
+      BUSD: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 9,
+      },
+    },
+    TON: {
+      USDT: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 6,
+      },
+      USDC: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 6,
+      },
+      DAI: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 18,
+      },
+      BUSD: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 18,
+      },
+    },
+    SOLANA: {
+      USDT: {
+        address: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+        decimals: 6,
+      }, // USDT SPL Token
+      USDC: {
+        address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        decimals: 6,
+      }, // USDC SPL Token
+      DAI: {
+        address: 'EjmyN6qEC1Tf1JxiG1ae7UTJhUxSwk1TCWNWqxWV4J6o',
+        decimals: 8,
+      }, // DAI SPL Token
+      BUSD: {
+        address: 'AJ1W9A9N9dEMdVyoDiam2rV44gnBm2csrPDP7xqcapgX',
+        decimals: 8,
+      }, // BUSD SPL Token
+    },
   };
 
   // ERC20 Transfer ABI
@@ -148,9 +238,11 @@ export class WithdrawalProcessorService {
   }
   // Withdrawal limits based on KYC level (example values)
   private readonly withdrawalLimits = {
-    UNVERIFIED: 0, // Cannot withdraw at all
+    NOT_STARTED: 0, // Cannot withdraw at all
     PENDING: 100, // Max $100 total withdrawal
     APPROVED: 10000, // Max $10,000 total withdrawal
+    REJECTED: 0, // Cannot withdraw
+    EXPIRED: 0, // Cannot withdraw
   };
 
   // Run every minute
@@ -226,7 +318,11 @@ export class WithdrawalProcessorService {
     const user = withdrawal.wallet.user;
     const kycStatus = user.kycStatus;
 
-    if (kycStatus === 'UNVERIFIED') {
+    if (
+      kycStatus === 'NOT_STARTED' ||
+      kycStatus === 'REJECTED' ||
+      kycStatus === 'EXPIRED'
+    ) {
       throw new Error('User KYC not verified. Withdrawal not allowed.');
     }
 
@@ -572,10 +668,10 @@ export class WithdrawalProcessorService {
     const user = withdrawal.wallet.user;
 
     // 🧠 Step 2: Apply withdrawal limit based on KYC status
-    const kycStatus = user.kycStatus; // 'UNVERIFIED', 'PENDING', 'APPROVED'
-    const limit = this.withdrawalLimits[kycStatus];
+    const kycStatus = user.kycStatus; // 'NOT_STARTED', 'PENDING', 'APPROVED', 'REJECTED', 'EXPIRED'
+    const limit = this.withdrawalLimits[kycStatus] ?? 0;
 
-    if (limit === undefined) {
+    if (limit === undefined || limit === null) {
       throw new BadRequestException('Invalid KYC status');
     }
 
@@ -593,7 +689,6 @@ export class WithdrawalProcessorService {
     );
     const newTotal = totalAmount.add(withdrawal.amount);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     if (newTotal.gt(limit)) {
       throw new BadRequestException(
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions

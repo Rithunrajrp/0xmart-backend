@@ -31,7 +31,6 @@ export class OrdersService {
   }
 
   async create(userId: string, createOrderDto: CreateOrderDto) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const { stablecoinType, items, shippingAddress } = createOrderDto;
 
     // Validate products and calculate totals
@@ -118,7 +117,7 @@ export class OrdersService {
         tax,
         total,
         status: OrderStatus.PAYMENT_PENDING,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
         shippingAddress,
         items: {
           create: orderItems,
@@ -232,12 +231,11 @@ export class OrdersService {
     const skip = (page - 1) * limit;
 
     const where: any = { userId };
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
     if (status) where.status = status;
 
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         where,
         skip,
         take: limit,
@@ -256,7 +254,7 @@ export class OrdersService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
       this.prisma.order.count({ where }),
     ]);
 
@@ -356,14 +354,13 @@ export class OrdersService {
     const skip = (page - 1) * limit;
 
     const where: any = {};
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
     if (status) where.status = status;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
     if (userId) where.userId = userId;
 
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         where,
         skip,
         take: limit,
@@ -387,7 +384,7 @@ export class OrdersService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
       this.prisma.order.count({ where }),
     ]);
 
@@ -419,23 +416,20 @@ export class OrdersService {
     };
 
     if (updateStatusDto.trackingNumber) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       updateData.trackingNumber = updateStatusDto.trackingNumber;
     }
 
     if (updateStatusDto.status === OrderStatus.SHIPPED) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       updateData.shippedAt = new Date();
     }
 
     if (updateStatusDto.status === OrderStatus.DELIVERED) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       updateData.deliveredAt = new Date();
     }
 
     const updatedOrder = await this.prisma.order.update({
       where: { id: orderId },
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
       data: updateData,
       include: {
         items: {

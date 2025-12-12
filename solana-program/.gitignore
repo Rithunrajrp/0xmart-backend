@@ -1,0 +1,31 @@
+# Anchor
+.anchor
+target/
+**/*.rs.bk
+test-ledger/
+
+# IDL
+idl/
+
+# TypeScript
+node_modules/
+dist/
+*.js
+*.d.ts
+!jest.config.js
+!.eslintrc.js
+
+# Keypairs (NEVER commit these!)
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+
+# Build artifacts
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Logs
+*.log

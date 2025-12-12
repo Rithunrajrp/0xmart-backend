@@ -1,0 +1,9 @@
+{
+  "projects": [
+    {
+      "name": "oxmart_payment",
+      "path": "./contracts/oxmart_payment.tact",
+      "output": "./build"
+    }
+  ]
+}

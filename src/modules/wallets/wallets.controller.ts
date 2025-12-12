@@ -14,7 +14,6 @@ import { WalletEntity } from './entities/wallet.entity';
 
 @ApiTags('wallets')
 @ApiBearerAuth()
-// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
 @UseGuards(JwtAuthGuard)
 @Controller('wallets')
 export class WalletsController {
@@ -27,7 +26,7 @@ export class WalletsController {
     @CurrentUser() user: any,
     @Body() createWalletDto: CreateWalletDto,
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return this.walletsService.createWallet(user.id, createWalletDto);
   }
 
@@ -35,7 +34,7 @@ export class WalletsController {
   @ApiOperation({ summary: 'Get all user wallets' })
   @ApiResponse({ status: 200, type: [WalletEntity] })
   async getUserWallets(@CurrentUser() user: any) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return this.walletsService.getUserWallets(user.id);
   }
 
@@ -43,7 +42,7 @@ export class WalletsController {
   @ApiOperation({ summary: 'Get wallet by ID' })
   @ApiResponse({ status: 200, type: WalletEntity })
   async getWallet(@Param('id') id: string, @CurrentUser() user: any) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return this.walletsService.getWallet(id, user.id);
   }
 
@@ -54,7 +53,7 @@ export class WalletsController {
     @Param('id') id: string,
     @CurrentUser() user: any,
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return this.walletsService.getWalletTransactions(id, user.id);
   }
 
@@ -65,7 +64,7 @@ export class WalletsController {
     @CurrentUser() user: any,
     @Body() transferOutDto: TransferOutDto,
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return this.walletsService.initiateWithdrawal(user.id, transferOutDto);
   }
 }

@@ -393,4 +393,79 @@ export class EmailService {
       );
     }
   }
+
+  async sendMerchantOnboardingEmail(
+    email: string,
+    companyName: string,
+    onboardingLink: string,
+  ): Promise<void> {
+    const apiKey = this.configService.get<string>('sendgrid.apiKey');
+
+    if (!apiKey) {
+      this.logger.warn(
+        `Would send merchant onboarding email to ${email} for ${companyName}`,
+      );
+      this.logger.warn(`Onboarding link: ${onboardingLink}`);
+      return;
+    }
+
+    try {
+      const templateId = this.configService.get<string>(
+        'sendgrid.merchantOnboardingTemplateId',
+      );
+      const fromEmail = this.configService.get<string>('sendgrid.fromEmail');
+      const fromName =
+        this.configService.get<string>('sendgrid.fromName') || '0xMart';
+
+      // If no template configured, send simple email
+      if (!templateId || !fromEmail) {
+        this.logger.warn(
+          '❌ Missing SendGrid configuration for Merchant Onboarding Email. Sending simple email instead.',
+        );
+
+        const simpleMsg = {
+          to: email,
+          from: { email: fromEmail || 'noreply@0xmart.com', name: fromName },
+          subject: 'Complete Your Merchant Onboarding - 0xMart',
+          text: `Hello ${companyName},\n\nWelcome to 0xMart! Please complete your merchant onboarding by clicking the link below:\n\n${onboardingLink}\n\nThis link will expire in 7 days.\n\nIf you have any questions, please contact our support team.\n\nBest regards,\n0xMart Team`,
+          html: `
+            <p>Hello <strong>${companyName}</strong>,</p>
+            <p>Welcome to 0xMart! Please complete your merchant onboarding by clicking the link below:</p>
+            <p><a href="${onboardingLink}" style="background-color: #4CAF50; color: white; padding: 14px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">Complete Onboarding</a></p>
+            <p>Or copy and paste this link: ${onboardingLink}</p>
+            <p><em>This link will expire in 7 days.</em></p>
+            <p>If you have any questions, please contact our support team.</p>
+            <p>Best regards,<br>0xMart Team</p>
+          `,
+        };
+
+        await sgMail.send(simpleMsg);
+        this.logger.log(`✅ Simple merchant onboarding email sent to ${email}`);
+        return;
+      }
+
+      // Send templated email
+      const msg = {
+        to: email,
+        from: { email: fromEmail, name: fromName },
+        templateId,
+        dynamicTemplateData: {
+          company_name: companyName,
+          onboarding_link: onboardingLink,
+          support_link:
+            this.configService.get<string>('sendgrid.supportLink') ||
+            'https://support.0xmart.com/help',
+          expiry_days: '7',
+        },
+      };
+
+      await sgMail.send(msg);
+      this.logger.log(`✅ Merchant onboarding email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(
+        `❌ Failed to send merchant onboarding email: ${error.message}`,
+      );
+      throw new Error('Failed to send merchant onboarding email');
+    }
+  }
 }

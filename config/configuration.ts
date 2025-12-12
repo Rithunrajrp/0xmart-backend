@@ -7,9 +7,9 @@ export default () => ({
   },
   jwt: {
     secret: process.env.JWT_SECRET,
-    expiresIn: process.env.JWT_EXPIRATION || '15m',
+    expiresIn: process.env.JWT_EXPIRATION || '30d',
     refreshSecret: process.env.JWT_REFRESH_SECRET,
-    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRATION || '7d',
+    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRATION || '60d',
   },
   sendgrid: {
     apiKey: process.env.SENDGRID_API_KEY,
@@ -56,6 +56,16 @@ export default () => ({
     bsc: process.env.BSC_RPC_URL,
     arbitrum: process.env.ARBITRUM_RPC_URL,
     optimism: process.env.OPTIMISM_RPC_URL,
+    avalanche: process.env.AVALANCHE_RPC_URL,
+    base: process.env.BASE_RPC_URL,
+    sui: process.env.SUI_RPC_URL,
+    ton: process.env.TON_RPC_URL,
+    tonApiKey: process.env.TON_API_KEY,
+    solana: process.env.SOLANA_RPC_URL,
+  },
+  encryption: {
+    masterKeySecret: process.env.MASTER_KEY_ENCRYPTION_SECRET,
+    masterKeySalt: process.env.MASTER_KEY_ENCRYPTION_SALT,
   },
   redis: {
     host: process.env.REDIS_HOST || 'localhost',

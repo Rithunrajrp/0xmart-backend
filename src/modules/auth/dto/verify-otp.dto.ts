@@ -30,10 +30,17 @@ export class VerifyOtpDto {
   @Matches(/^\d{7,15}$/, { message: 'Phone number must contain 7–15 digits' })
   phoneNumber: string;
 
-  @ApiProperty({ example: '123456', description: '6-digit OTP code' })
+  @ApiProperty({ example: '123456', description: '6-digit OTP code for email' })
   @IsString()
   @IsNotEmpty()
   @Length(6, 6)
-  @Matches(/^\d{6}$/, { message: 'OTP must be 6 digits' })
-  otp: string;
+  @Matches(/^\d{6}$/, { message: 'Email OTP must be 6 digits' })
+  emailOtp: string;
+
+  @ApiProperty({ example: '654321', description: '6-digit OTP code for phone' })
+  @IsString()
+  @IsNotEmpty()
+  @Length(6, 6)
+  @Matches(/^\d{6}$/, { message: 'Phone OTP must be 6 digits' })
+  phoneOtp: string;
 }

@@ -12,12 +12,15 @@ export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
   async create(createProductDto: CreateProductDto) {
-    const { prices, ...productData } = createProductDto;
+    const { prices, sellerId, ...productData } = createProductDto;
 
     const product = await this.prisma.product.create({
       data: {
         ...productData,
         status: ProductStatus.ACTIVE,
+        seller: {
+          connect: { id: sellerId },
+        },
         prices: {
           create: prices.map((p) => ({
             stablecoinType: p.stablecoinType,
@@ -27,6 +30,7 @@ export class ProductsService {
       },
       include: {
         prices: true,
+        seller: true,
       },
     });
 
@@ -44,14 +48,13 @@ export class ProductsService {
     const skip = (page - 1) * limit;
 
     const where: any = {};
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
     if (status) where.status = status;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
     if (category) where.category = category;
 
     const [products, total] = await Promise.all([
       this.prisma.product.findMany({
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         where,
         skip,
         take: limit,
@@ -60,7 +63,7 @@ export class ProductsService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
       this.prisma.product.count({ where }),
     ]);
 
@@ -161,12 +164,10 @@ export class ProductsService {
     };
 
     if (filters?.category) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       where.category = filters.category;
     }
 
     return this.prisma.product.findMany({
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       where,
       include: {
         prices: true,

@@ -80,14 +80,12 @@ export class SumsubService {
       });
 
       this.logger.log(
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         `Sumsub applicant created: ${response.data.id} for user ${userId}`,
       );
 
       return {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         applicantId: response.data.id,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+
         status: response.data.review?.reviewStatus || 'init',
       };
     } catch (error) {
@@ -119,9 +117,8 @@ export class SumsubService {
       this.logger.log(`Access token generated for applicant: ${applicantId}`);
 
       return {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         token: response.data.token,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+
         userId: response.data.userId,
       };
     } catch (error) {

@@ -112,6 +112,96 @@ export class DepositMonitorService {
         decimals: 18,
       }, // Not available
     },
+    AVALANCHE: {
+      USDT: {
+        address: '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7',
+        decimals: 6,
+      },
+      USDC: {
+        address: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',
+        decimals: 6,
+      },
+      DAI: {
+        address: '0xd586E7F844cEa2F87f50152665BCbc2C279D8d70',
+        decimals: 18,
+      },
+      BUSD: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 18,
+      }, // Not available
+    },
+    BASE: {
+      USDT: {
+        address: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2',
+        decimals: 6,
+      },
+      USDC: {
+        address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+        decimals: 6,
+      },
+      DAI: {
+        address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb',
+        decimals: 18,
+      },
+      BUSD: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 18,
+      }, // Not available
+    },
+    SUI: {
+      USDT: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 9,
+      }, // SUI uses different token standard
+      USDC: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 9,
+      },
+      DAI: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 9,
+      },
+      BUSD: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 9,
+      },
+    },
+    TON: {
+      USDT: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 6,
+      }, // TON uses different address format
+      USDC: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 6,
+      },
+      DAI: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 18,
+      },
+      BUSD: {
+        address: '0x0000000000000000000000000000000000000000',
+        decimals: 18,
+      },
+    },
+    SOLANA: {
+      USDT: {
+        address: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+        decimals: 6,
+      }, // USDT SPL Token
+      USDC: {
+        address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        decimals: 6,
+      }, // USDC SPL Token
+      DAI: {
+        address: 'EjmyN6qEC1Tf1JxiG1ae7UTJhUxSwk1TCWNWqxWV4J6o',
+        decimals: 8,
+      }, // DAI SPL Token
+      BUSD: {
+        address: 'AJ1W9A9N9dEMdVyoDiam2rV44gnBm2csrPDP7xqcapgX',
+        decimals: 8,
+      }, // BUSD SPL Token
+    },
   };
 
   // Required confirmations per network
@@ -121,6 +211,11 @@ export class DepositMonitorService {
     BSC: 15,
     ARBITRUM: 10,
     OPTIMISM: 10,
+    AVALANCHE: 1, // Avalanche C-Chain has fast finality
+    BASE: 12, // Similar to Ethereum
+    SUI: 1, // Sui has instant finality
+    TON: 1, // TON has fast finality
+    SOLANA: 32, // Solana requires 32 confirmations for finality
   };
 
   // ERC20 Transfer event ABI
@@ -180,6 +275,26 @@ export class DepositMonitorService {
   }
 
   private async checkWalletForDeposits(wallet: any) {
+    const { network } = wallet;
+
+    // Route to appropriate monitoring method based on network
+    if (network === 'SOLANA') {
+      return this.checkSolanaWalletForDeposits(wallet);
+    }
+
+    if (network === 'TON') {
+      return this.checkTonWalletForDeposits(wallet);
+    }
+
+    if (network === 'SUI') {
+      return this.checkSuiWalletForDeposits(wallet);
+    }
+
+    // EVM chains (Ethereum, Polygon, BSC, etc.)
+    return this.checkEvmWalletForDeposits(wallet);
+  }
+
+  private async checkEvmWalletForDeposits(wallet: any) {
     const {
       network,
       stablecoinType,
@@ -648,5 +763,304 @@ export class DepositMonitorService {
     this.logger.warn(
       `⚠️ Suspicious deposit flagged for user ${userId}: ${reason}`,
     );
+  }
+
+  // ============================================
+  // SOLANA DEPOSIT MONITORING
+  // ============================================
+
+  private async checkSolanaWalletForDeposits(wallet: any) {
+    const {
+      network,
+      stablecoinType,
+      depositAddress,
+      id: walletId,
+      userId,
+    } = wallet;
+
+    // Get token config
+    const tokenConfig = this.tokenAddresses[network]?.[stablecoinType];
+    if (
+      !tokenConfig ||
+      tokenConfig.address === '0x0000000000000000000000000000000000000000'
+    ) {
+      return; // Token not available on Solana
+    }
+
+    try {
+      const solanaService = this.blockchain.getSolanaService();
+
+      if (!solanaService.isConfigured()) {
+        this.logger.warn('Solana service not configured');
+        return;
+      }
+
+      // Get last processed signature for this wallet
+      const lastDeposit = await this.prisma.deposit.findFirst({
+        where: { walletId },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      // Get recent signatures for this address
+      const signatures = await solanaService.getSignaturesForAddress(
+        depositAddress,
+        lastDeposit?.txHash, // Start from last processed
+        50, // Check last 50 transactions
+      );
+
+      this.logger.debug(
+        `Found ${signatures.length} signatures for Solana wallet ${depositAddress}`,
+      );
+
+      for (const sig of signatures) {
+        // Check if we already processed this transaction
+        const existingDeposit = await this.prisma.deposit.findUnique({
+          where: { txHash: sig.signature },
+        });
+
+        if (existingDeposit) {
+          continue; // Already processed
+        }
+
+        // Parse SPL token transfer
+        const transfer = await solanaService.parseTokenTransfer(sig.signature);
+
+        if (!transfer) {
+          continue; // Not a token transfer
+        }
+
+        // Check if transfer is to our wallet and correct token
+        if (
+          transfer.to !== depositAddress ||
+          transfer.tokenMint !== tokenConfig.address
+        ) {
+          continue; // Not for us
+        }
+
+        // Convert amount (SPL tokens use different decimals)
+        const amountDecimal = new Decimal(transfer.amount).div(
+          Math.pow(10, tokenConfig.decimals),
+        );
+
+        // Get transaction details
+        const transaction = await solanaService.getTransaction(sig.signature);
+
+        if (!transaction) {
+          continue;
+        }
+
+        // Create deposit record
+        await this.createDeposit({
+          walletId,
+          userId,
+          txHash: sig.signature,
+          fromAddress: transfer.from,
+          amount: amountDecimal,
+          network: 'SOLANA',
+          stablecoinType,
+          blockNumber: BigInt(transaction.slot),
+        });
+
+        this.logger.log(
+          `New Solana deposit detected: ${amountDecimal.toString()} ${stablecoinType} to wallet ${depositAddress} (sig: ${sig.signature})`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error checking Solana wallet ${depositAddress}: ${error.message}`,
+      );
+    }
+  }
+
+  // ============================================
+  // TON DEPOSIT MONITORING
+  // ============================================
+
+  private async checkTonWalletForDeposits(wallet: any) {
+    const {
+      network,
+      stablecoinType,
+      depositAddress,
+      id: walletId,
+      userId,
+    } = wallet;
+
+    // Get token config
+    const tokenConfig = this.tokenAddresses[network]?.[stablecoinType];
+    if (
+      !tokenConfig ||
+      tokenConfig.address === '0x0000000000000000000000000000000000000000'
+    ) {
+      return; // Token not available on TON
+    }
+
+    try {
+      const tonService = this.blockchain.getTonService();
+
+      if (!tonService.isConfigured()) {
+        this.logger.warn('TON service not configured');
+        return;
+      }
+
+      // Get recent transactions for this address
+      const transactions = await tonService.getTransactions(depositAddress, 50);
+
+      this.logger.debug(
+        `Found ${transactions.length} transactions for TON wallet ${depositAddress}`,
+      );
+
+      for (const tx of transactions) {
+        // Check if we already processed this transaction
+        const existingDeposit = await this.prisma.deposit.findUnique({
+          where: { txHash: tx.hash },
+        });
+
+        if (existingDeposit) {
+          continue; // Already processed
+        }
+
+        // For TON, we need to check if this is a jetton transfer
+        // This requires parsing the transaction message
+        // For now, check native TON transfers (simplified)
+
+        if (!tx.to || tx.to !== depositAddress) {
+          continue; // Not to our wallet
+        }
+
+        if (!tx.value || tx.value === '0') {
+          continue; // No value transferred
+        }
+
+        // Convert nanotons to TON
+        const amountDecimal = new Decimal(tx.value).div(1e9);
+
+        // Get last processed block for this wallet
+        const lastDeposit = await this.prisma.deposit.findFirst({
+          where: { walletId },
+          orderBy: { blockNumber: 'desc' },
+        });
+
+        // Skip if this transaction is older than last processed
+        if (lastDeposit && tx.timestamp <= Number(lastDeposit.blockNumber)) {
+          continue;
+        }
+
+        // Create deposit record
+        await this.createDeposit({
+          walletId,
+          userId,
+          txHash: tx.hash,
+          fromAddress: tx.from || 'unknown',
+          amount: amountDecimal,
+          network: 'TON',
+          stablecoinType,
+          blockNumber: BigInt(tx.timestamp),
+        });
+
+        this.logger.log(
+          `New TON deposit detected: ${amountDecimal.toString()} TON to wallet ${depositAddress} (tx: ${tx.hash})`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error checking TON wallet ${depositAddress}: ${error.message}`,
+      );
+    }
+  }
+
+  // ============================================
+  // SUI DEPOSIT MONITORING
+  // ============================================
+
+  private async checkSuiWalletForDeposits(wallet: any) {
+    const {
+      network,
+      stablecoinType,
+      depositAddress,
+      id: walletId,
+      userId,
+    } = wallet;
+
+    // Get token config
+    const tokenConfig = this.tokenAddresses[network]?.[stablecoinType];
+    if (
+      !tokenConfig ||
+      tokenConfig.address === '0x0000000000000000000000000000000000000000'
+    ) {
+      return; // Token not available on SUI
+    }
+
+    try {
+      const suiService = this.blockchain.getSuiService();
+
+      if (!suiService.isConfigured()) {
+        this.logger.warn('SUI service not configured');
+        return;
+      }
+
+      // Get recent transactions (paginated)
+      const txResult = await suiService.getTransactionsForAddress(
+        depositAddress,
+        null,
+        50,
+      );
+
+      for (const txDigest of txResult.data) {
+        // Check if already processed
+        const existingDeposit = await this.prisma.deposit.findUnique({
+          where: { txHash: txDigest },
+        });
+
+        if (existingDeposit) continue;
+
+        // Parse coin transfer
+        const transfer = await suiService.parseCoinTransfer(txDigest);
+        if (!transfer) continue;
+
+        // Check if transfer is to our deposit address and correct coin type
+        if (
+          transfer.to !== depositAddress ||
+          transfer.coinType !== tokenConfig.address
+        ) {
+          continue;
+        }
+
+        // Get coin metadata for decimals
+        const metadata = await suiService.getCoinMetadata(transfer.coinType);
+        const decimals = metadata?.decimals || 9;
+
+        // Convert amount to decimal
+        const amountDecimal = new Decimal(transfer.amount).div(
+          Math.pow(10, decimals),
+        );
+
+        // Get transaction details for timestamp
+        const transaction = await suiService.getTransaction(txDigest);
+        if (!transaction) continue;
+
+        // Get checkpoint for block number
+        const checkpoint = transaction.checkpoint || '0';
+
+        // Create deposit record
+        await this.createDeposit({
+          walletId,
+          userId,
+          txHash: txDigest,
+          fromAddress: transfer.from,
+          amount: amountDecimal,
+          network: 'SUI',
+          stablecoinType,
+          blockNumber: BigInt(checkpoint),
+        });
+
+        this.logger.log(
+          `New SUI deposit detected: ${amountDecimal.toString()} ${stablecoinType} to wallet ${depositAddress} (digest: ${txDigest})`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error checking SUI wallet ${depositAddress}: ${error.message}`,
+      );
+    }
   }
 }

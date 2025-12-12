@@ -24,7 +24,7 @@ async function bootstrap() {
   });
 
   // Compression
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
   app.use(compression());
 
   // Global prefix
@@ -63,12 +63,15 @@ async function bootstrap() {
     SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
   }
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
   logger.log(
     `🚀 Application is running on: http://localhost:${port}/${apiPrefix}`,
   );
   logger.log(
     `📚 Swagger documentation: http://localhost:${port}/${apiPrefix}/docs`,
+  );
+  logger.log(
+    `📱 Mobile/Network access: http://172.20.10.2:${port}/${apiPrefix}`,
   );
 }
 

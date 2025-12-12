@@ -1,0 +1,35 @@
+# Environment variables
+.env
+.env.local
+
+# Hardhat files
+cache
+artifacts
+typechain-types
+
+# Build files
+dist
+build
+
+# Dependencies
+node_modules
+
+# IDE
+.vscode
+.idea
+
+# Deployment info (consider keeping these in git for transparency)
+# deployments/*.json
+
+# Coverage
+coverage
+coverage.json
+
+# Gas reporter
+.gas-snapshot
+
+# Hardhat Ignition default folder for deployments against a local node
+ignition/deployments/chain-31337
+
+# Logs
+*.log

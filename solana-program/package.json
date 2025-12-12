@@ -1,0 +1,37 @@
+{
+  "name": "@0xmart/solana-program",
+  "version": "1.0.0",
+  "description": "0xMart Payment Program for Solana",
+  "main": "index.js",
+  "scripts": {
+    "lint:fix": "cargo fmt && cargo clippy --fix --allow-staged",
+    "test": "anchor test",
+    "build": "anchor build",
+    "deploy:devnet": "anchor deploy --provider.cluster devnet",
+    "deploy:mainnet": "anchor deploy --provider.cluster mainnet",
+    "clean": "anchor clean"
+  },
+  "keywords": [
+    "solana",
+    "anchor",
+    "payment",
+    "0xmart",
+    "spl-token"
+  ],
+  "author": "0xMart Team",
+  "license": "MIT",
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.29.0",
+    "@solana/spl-token": "^0.3.9",
+    "@solana/web3.js": "^1.87.6"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.1.5",
+    "@types/chai": "^4.3.11",
+    "@types/mocha": "^10.0.6",
+    "chai": "^4.4.1",
+    "mocha": "^10.2.0",
+    "ts-mocha": "^10.0.0",
+    "typescript": "^5.3.3"
+  }
+}

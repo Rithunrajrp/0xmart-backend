@@ -1,0 +1,41 @@
+{
+  "name": "@0xmart/smart-contracts",
+  "version": "1.0.0",
+  "description": "Smart contract infrastructure for 0xMart payment processing",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "test:coverage": "hardhat coverage",
+    "test:gas": "REPORT_GAS=true hardhat test",
+    "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
+    "deploy:mumbai": "hardhat run scripts/deploy.ts --network mumbai",
+    "deploy:bscTestnet": "hardhat run scripts/deploy.ts --network bscTestnet",
+    "deploy:arbitrumSepolia": "hardhat run scripts/deploy.ts --network arbitrumSepolia",
+    "deploy:optimismSepolia": "hardhat run scripts/deploy.ts --network optimismSepolia",
+    "deploy:avalancheFuji": "hardhat run scripts/deploy.ts --network avalancheFuji",
+    "deploy:baseSepolia": "hardhat run scripts/deploy.ts --network baseSepolia",
+    "tokens:sepolia": "hardhat run scripts/addTokens.ts --network sepolia",
+    "tokens:mumbai": "hardhat run scripts/addTokens.ts --network mumbai",
+    "tokens:bscTestnet": "hardhat run scripts/addTokens.ts --network bscTestnet",
+    "clean": "hardhat clean",
+    "typechain": "hardhat typechain"
+  },
+  "keywords": [
+    "blockchain",
+    "ethereum",
+    "smart-contracts",
+    "payment",
+    "0xmart"
+  ],
+  "author": "0xMart Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "@openzeppelin/contracts": "^5.4.0",
+    "@typechain/hardhat": "^9.1.0",
+    "dotenv": "^17.2.3",
+    "hardhat": "^2.27.1",
+    "typechain": "^8.3.2"
+  }
+}
