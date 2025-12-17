@@ -3,6 +3,7 @@ import {
   IsEmail,
   IsNotEmpty,
   IsString,
+  IsOptional,
   Length,
   Matches,
 } from 'class-validator';
@@ -43,4 +44,13 @@ export class VerifyOtpDto {
   @Length(6, 6)
   @Matches(/^\d{6}$/, { message: 'Phone OTP must be 6 digits' })
   phoneOtp: string;
+
+  @ApiProperty({
+    example: 'ABC123XYZ',
+    description: 'Referral code from another user (optional)',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  referralCode?: string;
 }

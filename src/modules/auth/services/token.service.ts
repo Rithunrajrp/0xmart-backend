@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { JwtPayload } from '../strategies/jwt.strategy';
+import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class TokenService {
@@ -12,7 +13,7 @@ export class TokenService {
     private prisma: PrismaService,
   ) {}
 
-  async generateTokens(userId: string, email: string, role: string) {
+  async generateTokens(userId: string, email: string | null, role: UserRole) {
     const payload: JwtPayload = {
       sub: userId,
       email,
@@ -20,21 +21,20 @@ export class TokenService {
     };
 
     const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(payload, {
+      this.jwtService.signAsync(payload as any, {
         secret: this.configService.get<string>('jwt.secret') ?? '',
-        expiresIn: this.configService.get<number>('jwt.expiresIn') ?? 15 * 60,
-      }),
-      this.jwtService.signAsync(payload, {
+        expiresIn: this.configService.get<string>('jwt.expiresIn') ?? '30d',
+      } as any),
+      this.jwtService.signAsync(payload as any, {
         secret: this.configService.get<string>('jwt.refreshSecret') ?? '',
         expiresIn:
-          this.configService.get<number>('jwt.refreshExpiresIn') ??
-          7 * 24 * 60 * 60,
-      }),
+          this.configService.get<string>('jwt.refreshExpiresIn') ?? '60d',
+      } as any),
     ]);
 
     // Store refresh token in database
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+    expiresAt.setDate(expiresAt.getDate() + 60); // 60 days
 
     await this.prisma.userSession.create({
       data: {
@@ -48,7 +48,7 @@ export class TokenService {
     return {
       accessToken,
       refreshToken,
-      expiresIn: 900, // 15 minutes in seconds
+      expiresIn: 30 * 24 * 60 * 60, // 30 days in seconds
     };
   }
 
@@ -72,7 +72,7 @@ export class TokenService {
       // Generate new tokens
       return this.generateTokens(
         session.user.id,
-        session.user.email ?? '',
+        session.user.email,
         session.user.role,
       );
     } catch (error) {

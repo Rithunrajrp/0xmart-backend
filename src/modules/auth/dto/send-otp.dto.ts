@@ -36,4 +36,13 @@ export class SendOtpDto {
   @Length(7, 15)
   @Matches(/^\d+$/, { message: 'Phone number must contain only digits' })
   phoneNumber?: string;
+
+  @ApiProperty({
+    example: 'ABC123XYZ',
+    description: 'Referral code from another user (optional)',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  referralCode?: string;
 }

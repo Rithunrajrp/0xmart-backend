@@ -135,17 +135,25 @@ export class AuthService {
     });
 
     if (!user) {
+      // Check if email is @0xmart.com domain and should be created as admin
+      const isOxMartEmail = normalizedEmail.endsWith('@0xmart.com');
+      const userRole = isOxMartEmail ? 'ADMIN' : 'USER';
+
+      // Generate unique referral code
+      const referralCode = await this.generateUniqueReferralCode();
+
       user = await this.prisma.user.create({
         data: {
           email: normalizedEmail,
           phoneNumber: phoneNumber,
           countryCode: countryCode,
-          role: 'USER',
+          role: userRole,
           status: 'ACTIVE',
+          referralCode,
         },
       });
 
-      this.logger.log(`New user created: ${user.id}`);
+      this.logger.log(`New user created: ${user.id} with role: ${userRole}`);
     }
 
     // Update last login
@@ -179,6 +187,7 @@ export class AuthService {
         phoneNumber: user.phoneNumber,
         countryCode: user.countryCode,
         role: user.role,
+        userType: user.userType,
         kycStatus: user.kycStatus,
       },
     };
@@ -211,5 +220,63 @@ export class AuthService {
     await this.tokenService.revokeAllUserTokens(userId);
 
     return { message: 'Logged out from all devices successfully' };
+  }
+
+  /**
+   * Generate unique referral code for a user
+   */
+  private async generateUniqueReferralCode(): Promise<string> {
+    let referralCode: string;
+    let isUnique = false;
+
+    while (!isUnique) {
+      // Generate a 8-character alphanumeric code
+      referralCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+
+      // Check if this code already exists
+      const existingUser = await this.prisma.user.findUnique({
+        where: { referralCode },
+      });
+
+      if (!existingUser) {
+        isUnique = true;
+      }
+    }
+
+    return referralCode!;
+  }
+
+  /**
+   * Validate referral code
+   */
+  async validateReferralCode(code: string) {
+    if (!code || code.trim() === '') {
+      return {
+        valid: false,
+        message: 'Referral code is required',
+      };
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { referralCode: code.toUpperCase() },
+      select: {
+        id: true,
+        email: true,
+        referralCode: true,
+      },
+    });
+
+    if (user) {
+      return {
+        valid: true,
+        message: 'Referral code is valid',
+        referrerEmail: user.email,
+      };
+    } else {
+      return {
+        valid: false,
+        message: 'Invalid referral code',
+      };
+    }
   }
 }

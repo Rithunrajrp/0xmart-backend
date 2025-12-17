@@ -94,13 +94,23 @@ export class ProductsController {
     return this.productsService.update(id, updateProductDto);
   }
 
-  @Delete(':id')
+  @Patch(':id/deactivate')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Deactivate product (Admin only)' })
   @ApiResponse({ status: 200 })
-  remove(@Param('id') id: string) {
-    return this.productsService.remove(id);
+  deactivate(@Param('id') id: string) {
+    return this.productsService.deactivate(id);
+  }
+
+  @Delete(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Permanently delete product (Admin only)' })
+  @ApiResponse({ status: 200 })
+  remove(@Param('id') id: string, @Body() body: { deletedBy: string; reason?: string }) {
+    return this.productsService.remove(id, body.deletedBy, body.reason);
   }
 }

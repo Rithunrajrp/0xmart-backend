@@ -27,6 +27,9 @@ import { MerchantModule } from './modules/merchant/merchant.module';
 import { AdminManagementModule } from './modules/admin-management/admin-management.module';
 import { MerchantManagementModule } from './modules/merchant-management/merchant-management.module';
 import { MerchantOnboardingModule } from './modules/merchant-onboarding/merchant-onboarding.module';
+import { AddressesModule } from './modules/addresses/addresses.module';
+import { UserManagementModule } from './modules/user-management/user-management.module';
+import { RewardsModule } from './modules/rewards/rewards.module';
 
 @Module({
   imports: [
@@ -66,6 +69,10 @@ import { MerchantOnboardingModule } from './modules/merchant-onboarding/merchant
     AdminManagementModule,
     MerchantManagementModule,
     MerchantOnboardingModule,
+    AddressesModule,
+    // User management and rewards
+    UserManagementModule,
+    RewardsModule,
   ],
   providers: [
     {

@@ -51,17 +51,54 @@ export default () => ({
     baseUrl: process.env.SUMSUB_BASE_URL,
   },
   blockchain: {
-    ethereum: process.env.ETHEREUM_RPC_URL,
-    polygon: process.env.POLYGON_RPC_URL,
-    bsc: process.env.BSC_RPC_URL,
-    arbitrum: process.env.ARBITRUM_RPC_URL,
-    optimism: process.env.OPTIMISM_RPC_URL,
-    avalanche: process.env.AVALANCHE_RPC_URL,
-    base: process.env.BASE_RPC_URL,
-    sui: process.env.SUI_RPC_URL,
-    ton: process.env.TON_RPC_URL,
-    tonApiKey: process.env.TON_API_KEY,
-    solana: process.env.SOLANA_RPC_URL,
+    // EVM Networks - uses testnet in development, mainnet in production
+    ethereum:
+      process.env.NODE_ENV === 'development'
+        ? process.env.ETHEREUM_SEPOLIA_RPC_URL || process.env.ETHEREUM_RPC_URL
+        : process.env.ETHEREUM_RPC_URL,
+    polygon:
+      process.env.NODE_ENV === 'development'
+        ? process.env.POLYGON_AMOY_RPC_URL || process.env.POLYGON_RPC_URL
+        : process.env.POLYGON_RPC_URL,
+    bsc:
+      process.env.NODE_ENV === 'development'
+        ? process.env.BSC_TESTNET_RPC_URL || process.env.BSC_RPC_URL
+        : process.env.BSC_RPC_URL,
+    arbitrum:
+      process.env.NODE_ENV === 'development'
+        ? process.env.ARBITRUM_SEPOLIA_RPC_URL || process.env.ARBITRUM_RPC_URL
+        : process.env.ARBITRUM_RPC_URL,
+    optimism:
+      process.env.NODE_ENV === 'development'
+        ? process.env.OPTIMISM_SEPOLIA_RPC_URL || process.env.OPTIMISM_RPC_URL
+        : process.env.OPTIMISM_RPC_URL,
+    avalanche:
+      process.env.NODE_ENV === 'development'
+        ? process.env.AVALANCHE_FUJI_RPC_URL || process.env.AVALANCHE_RPC_URL
+        : process.env.AVALANCHE_RPC_URL,
+    base:
+      process.env.NODE_ENV === 'development'
+        ? process.env.BASE_SEPOLIA_RPC_URL || process.env.BASE_RPC_URL
+        : process.env.BASE_RPC_URL,
+    // Solana - uses testnet in development, mainnet in production
+    solana:
+      process.env.NODE_ENV === 'development'
+        ? process.env.SOLANA_TESTNET_RPC_URL || process.env.SOLANA_RPC_URL
+        : process.env.SOLANA_RPC_URL,
+    // SUI - uses testnet in development, mainnet in production
+    sui:
+      process.env.NODE_ENV === 'development'
+        ? process.env.SUI_TESTNET_RPC_URL || process.env.SUI_RPC_URL
+        : process.env.SUI_RPC_URL,
+    // TON - uses testnet in development, mainnet in production
+    ton:
+      process.env.NODE_ENV === 'development'
+        ? process.env.TON_TESTNET_RPC_URL || process.env.TON_RPC_URL
+        : process.env.TON_RPC_URL,
+    tonApiKey:
+      process.env.NODE_ENV === 'development'
+        ? process.env.TON_TESTNET_API_KEY || process.env.TON_API_KEY
+        : process.env.TON_API_KEY,
   },
   encryption: {
     masterKeySecret: process.env.MASTER_KEY_ENCRYPTION_SECRET,

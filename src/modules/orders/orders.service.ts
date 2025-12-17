@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { WalletsService } from '../wallets/wallets.service';
+import { RewardsService } from '../rewards/rewards.service';
+import { UserManagementService } from '../user-management/user-management.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import {
@@ -22,6 +24,8 @@ export class OrdersService {
   constructor(
     private prisma: PrismaService,
     private walletsService: WalletsService,
+    private rewardsService: RewardsService,
+    private userManagementService: UserManagementService,
   ) {}
 
   private generateOrderNumber(): string {
@@ -220,7 +224,68 @@ export class OrdersService {
 
     this.logger.log(`Payment confirmed for order: ${order.orderNumber}`);
 
+    // Process rewards and user type upgrades asynchronously
+    this.processPostOrderRewards(order).catch((error) => {
+      this.logger.error(`Failed to process rewards for order ${orderId}`, error);
+    });
+
     return this.findOne(orderId, order.userId);
+  }
+
+  /**
+   * Process rewards and user type upgrades after order confirmation
+   */
+  private async processPostOrderRewards(order: any) {
+    try {
+      // 1. Create purchase reward
+      await this.rewardsService.createPurchaseReward(
+        order.userId,
+        order.id,
+        parseFloat(order.total.toString()),
+        order.stablecoinType,
+      );
+
+      // 2. Update user's total spent amount
+      await this.userManagementService.updateUserSpent(
+        order.userId,
+        parseFloat(order.total.toString()),
+      );
+
+      // 3. Check if user was referred and reward referrer
+      const user = await this.prisma.user.findUnique({
+        where: { id: order.userId },
+        select: { referredBy: true },
+      });
+
+      if (user?.referredBy) {
+        // Check if this is the first purchase by referee
+        const orderCount = await this.prisma.order.count({
+          where: { userId: order.userId, status: OrderStatus.CONFIRMED },
+        });
+
+        if (orderCount === 1) {
+          // First purchase - create referral rewards
+          await this.rewardsService.createReferralReward(
+            user.referredBy,
+            order.userId,
+            order.id,
+          );
+
+          // Update referrer's referral count
+          await this.userManagementService.updateReferralCount(user.referredBy);
+        }
+      }
+
+      this.logger.log(
+        `Post-order rewards processed for order ${order.id}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error processing post-order rewards for order ${order.id}`,
+        error,
+      );
+      throw error;
+    }
   }
 
   async findAll(

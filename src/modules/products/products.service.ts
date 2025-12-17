@@ -131,7 +131,7 @@ export class ProductsService {
     return this.findOne(id);
   }
 
-  async remove(id: string) {
+  async deactivate(id: string) {
     await this.findOne(id);
 
     await this.prisma.product.update({
@@ -141,6 +141,52 @@ export class ProductsService {
 
     this.logger.log(`Product deactivated: ${id}`);
     return { message: 'Product deactivated successfully' };
+  }
+
+  async remove(id: string, deletedBy: string, reason?: string) {
+    const product = await this.findOne(id);
+
+    // Store deleted product for record keeping
+    await this.prisma.deletedProduct.create({
+      data: {
+        productId: product.id,
+        sellerId: product.sellerId,
+        name: product.name,
+        description: product.description,
+        imageUrl: product.imageUrl,
+        images: product.images ?? undefined,
+        category: product.category,
+        brand: product.brand,
+        prices: product.prices ?? undefined,
+        deletedBy,
+        reason,
+        metadata: {
+          sku: product.sku,
+          stock: product.stock,
+          rating: product.rating.toString(),
+          totalReviews: product.totalReviews,
+          createdAt: product.createdAt,
+          updatedAt: product.updatedAt,
+        },
+      },
+    });
+
+    // Delete related data first
+    await this.prisma.productPrice.deleteMany({
+      where: { productId: id },
+    });
+
+    await this.prisma.favorite.deleteMany({
+      where: { productId: id },
+    });
+
+    // Delete the product
+    await this.prisma.product.delete({
+      where: { id },
+    });
+
+    this.logger.log(`Product permanently deleted: ${id} by ${deletedBy}`);
+    return { message: 'Product deleted successfully and moved to deleted items' };
   }
 
   async getCategories() {

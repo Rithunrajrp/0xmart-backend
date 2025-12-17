@@ -208,4 +208,56 @@ export class UsersService {
       },
     };
   }
+
+  async getReferralStats(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        referralCode: true,
+        totalReferrals: true,
+        referrals: {
+          select: {
+            id: true,
+            createdAt: true,
+            totalSpent: true,
+          },
+        },
+        rewards: {
+          where: { type: 'REFERRAL' },
+          select: {
+            amount: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const successfulReferrals = user.referrals.filter(
+      (ref) => parseFloat(ref.totalSpent.toString()) > 0,
+    ).length;
+
+    const pendingReferrals = user.referrals.filter(
+      (ref) => parseFloat(ref.totalSpent.toString()) === 0,
+    ).length;
+
+    const totalEarnings = user.rewards
+      .filter((r) => r.status === 'CLAIMED' && r.amount)
+      .reduce((sum, r) => sum + parseFloat(r.amount!.toString()), 0);
+
+    const appUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const referralLink = `${appUrl}/login?ref=${user.referralCode}`;
+
+    return {
+      totalReferrals: user.totalReferrals,
+      successfulReferrals,
+      pendingReferrals,
+      totalEarnings: totalEarnings.toFixed(2),
+      referralCode: user.referralCode,
+      referralLink,
+    };
+  }
 }

@@ -25,7 +25,7 @@ export class AuthService {
   ) {}
 
   async sendOtp(sendOtpDto: SendOtpDto) {
-    const { email, countryCode, phoneNumber } = sendOtpDto;
+    const { email, countryCode, phoneNumber, referralCode } = sendOtpDto;
 
     if (!phoneNumber || !countryCode) {
       throw new BadRequestException(
@@ -100,7 +100,7 @@ export class AuthService {
   }
 
   async verifyOtp(verifyOtpDto: VerifyOtpDto) {
-    const { email, emailOtp, phoneOtp, countryCode, phoneNumber } =
+    const { email, emailOtp, phoneOtp, countryCode, phoneNumber, referralCode } =
       verifyOtpDto;
 
     // Normalize input
@@ -135,6 +135,23 @@ export class AuthService {
     });
 
     if (!user) {
+      // Handle referral code if provided
+      let referrerId: string | undefined;
+      if (referralCode) {
+        const referrer = await this.prisma.user.findUnique({
+          where: { referralCode },
+        });
+        if (referrer) {
+          referrerId = referrer.id;
+          this.logger.log(`Valid referral code: ${referralCode} from user ${referrerId}`);
+        } else {
+          this.logger.warn(`Invalid referral code provided: ${referralCode}`);
+        }
+      }
+
+      // Generate unique referral code for new user
+      const newReferralCode = await this.generateUniqueReferralCode();
+
       user = await this.prisma.user.create({
         data: {
           email: normalizedEmail,
@@ -142,10 +159,12 @@ export class AuthService {
           countryCode: countryCode,
           role: 'USER',
           status: 'ACTIVE',
+          referralCode: newReferralCode,
+          referredBy: referrerId,
         },
       });
 
-      this.logger.log(`New user created: ${user.id}`);
+      this.logger.log(`New user created: ${user.id} with referral code: ${newReferralCode}`);
     }
 
     // Update last login
@@ -211,5 +230,71 @@ export class AuthService {
     await this.tokenService.revokeAllUserTokens(userId);
 
     return { message: 'Logged out from all devices successfully' };
+  }
+
+  /**
+   * Generate a unique 8-character alphanumeric referral code
+   */
+  private async generateUniqueReferralCode(): Promise<string> {
+    const characters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluded confusing chars: 0,O,1,I
+    let code: string;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    do {
+      code = '';
+      for (let i = 0; i < 8; i++) {
+        code += characters.charAt(Math.floor(Math.random() * characters.length));
+      }
+
+      // Check if code already exists
+      const existing = await this.prisma.user.findUnique({
+        where: { referralCode: code },
+      });
+
+      if (!existing) {
+        return code;
+      }
+
+      attempts++;
+    } while (attempts < maxAttempts);
+
+    // Fallback: use timestamp-based code if collision after max attempts
+    const timestamp = Date.now().toString(36).toUpperCase().slice(-8);
+    return timestamp;
+  }
+
+  /**
+   * Validate referral code
+   */
+  async validateReferralCode(code: string) {
+    if (!code || code.trim() === '') {
+      return {
+        valid: false,
+        message: 'Referral code is required',
+      };
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { referralCode: code.toUpperCase() },
+      select: {
+        id: true,
+        email: true,
+        referralCode: true,
+      },
+    });
+
+    if (user) {
+      return {
+        valid: true,
+        message: 'Referral code is valid',
+        referrerEmail: user.email,
+      };
+    } else {
+      return {
+        valid: false,
+        message: 'Invalid referral code',
+      };
+    }
   }
 }

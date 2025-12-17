@@ -18,6 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UserAddressesService } from './user-addresses.service';
+import { UserManagementService } from '../user-management/user-management.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
@@ -37,6 +38,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly userAddressesService: UserAddressesService,
+    private readonly userManagementService: UserManagementService,
   ) {}
 
   @Get('me')
@@ -61,6 +63,20 @@ export class UsersController {
   @ApiResponse({ status: 200 })
   async getStats(@CurrentUser() user: { id: string }) {
     return this.usersService.getUserStats(user.id);
+  }
+
+  @Get('me/upgrade-status')
+  @ApiOperation({ summary: 'Get current user upgrade status and tier progress' })
+  @ApiResponse({ status: 200 })
+  async getMyUpgradeStatus(@CurrentUser() user: { id: string }) {
+    return this.userManagementService.getUserUpgradeStatus(user.id);
+  }
+
+  @Get('me/referral-stats')
+  @ApiOperation({ summary: 'Get current user referral statistics' })
+  @ApiResponse({ status: 200 })
+  async getReferralStats(@CurrentUser() user: { id: string }) {
+    return this.usersService.getReferralStats(user.id);
   }
 
   @Put('me/deactivate')

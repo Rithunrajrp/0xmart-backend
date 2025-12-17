@@ -1,0 +1,31 @@
+
+> 0xmart-backend@0.0.1 build
+> nest build
+
+[96msrc/modules/auth/services/token.service.ts[0m:[93m24[0m:[93m23[0m - [91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 1 of 3, '(payload: string, options?: Omit<JwtSignOptions, keyof SignOptions> | undefined): Promise<string>', gave the following error.
+    Argument of type 'JwtPayload' is not assignable to parameter of type 'string'.
+  Overload 2 of 3, '(payload: Buffer<ArrayBufferLike>, options?: JwtSignOptions | undefined): Promise<string>', gave the following error.
+    Argument of type 'JwtPayload' is not assignable to parameter of type 'Buffer<ArrayBufferLike>'.
+      Type 'JwtPayload' is missing the following properties from type 'Buffer<ArrayBufferLike>': slice, subarray, write, toJSON, and 102 more.
+  Overload 3 of 3, '(payload: JwtPayload, options?: JwtSignOptions | undefined): Promise<string>', gave the following error.
+    Type 'string' is not assignable to type 'number | StringValue | undefined'.
+
+[7m24[0m       this.jwtService.signAsync(payload, {
+[7m  [0m [91m                      ~~~~~~~~~[0m
+
+[96msrc/modules/auth/services/token.service.ts[0m:[93m28[0m:[93m23[0m - [91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 1 of 3, '(payload: string, options?: Omit<JwtSignOptions, keyof SignOptions> | undefined): Promise<string>', gave the following error.
+    Argument of type 'JwtPayload' is not assignable to parameter of type 'string'.
+  Overload 2 of 3, '(payload: Buffer<ArrayBufferLike>, options?: JwtSignOptions | undefined): Promise<string>', gave the following error.
+    Argument of type 'JwtPayload' is not assignable to parameter of type 'Buffer<ArrayBufferLike>'.
+      Type 'JwtPayload' is missing the following properties from type 'Buffer<ArrayBufferLike>': slice, subarray, write, toJSON, and 102 more.
+  Overload 3 of 3, '(payload: JwtPayload, options?: JwtSignOptions | undefined): Promise<string>', gave the following error.
+    Type 'string' is not assignable to type 'number | StringValue | undefined'.
+
+[7m28[0m       this.jwtService.signAsync(payload, {
+[7m  [0m [91m                      ~~~~~~~~~[0m
+
+
+Found 2 error(s).
+

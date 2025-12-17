@@ -6,6 +6,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -28,6 +29,7 @@ export interface CurrentUserDto {
   phoneNumber?: string;
   countryCode?: string;
   role?: string;
+  userType?: string;
   status?: string;
   kycStatus?: string;
 }
@@ -106,8 +108,18 @@ export class AuthController {
       phoneNumber: user.phoneNumber,
       countryCode: user.countryCode,
       role: user.role,
+      userType: user.userType,
       status: user.status,
       kycStatus: user.kycStatus,
     };
+  }
+
+  @Public()
+  @Get('validate-referral-code')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Validate referral code' })
+  @ApiResponse({ status: 200, description: 'Referral code validation result' })
+  async validateReferralCode(@Query('code') code: string) {
+    return this.authService.validateReferralCode(code);
   }
 }

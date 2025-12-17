@@ -21,6 +21,13 @@ enum UserRole {
   EMPLOYEE
 }
 
+enum UserType {
+  MOBILE      // Basic mobile user
+  WHALE       // High-value investor/trader
+  MEMBER      // Premium member
+  STANDARD    // Standard user (default)
+}
+
 enum UserStatus {
   ACTIVE
   SUSPENDED
@@ -41,6 +48,7 @@ model User {
   countryCode   String
   email         String?     @unique
   role          UserRole    @default(USER)
+  userType      UserType    @default(STANDARD)
   status        UserStatus  @default(ACTIVE)
   kycStatus     KYCStatus   @default(NOT_STARTED)
   kycProviderId String?
@@ -66,11 +74,23 @@ model User {
   employeeProfile Employee?
   createdEmployees Employee[] @relation("CreatedByUser")
   sellerProfile Seller?
+  // Referral system
+  referralCode String?   @unique  // User's unique referral code
+  referredBy  String?              // ID of user who referred this user
+  referredByUser User?   @relation("UserReferrals", fields: [referredBy], references: [id])
+  referrals   User[]     @relation("UserReferrals")
+  rewards     Reward[]
+  // User type upgrade tracking
+  totalSpent       Decimal @default(0) @db.Decimal(20, 8) // Total purchase amount
+  totalReferrals   Int     @default(0) // Number of successful referrals
+  subscriptionTier String? // Premium subscription tier if any
 
   @@index([phoneNumber])
   @@index([email])
   @@index([kycStatus])
   @@index([role])
+  @@index([referralCode])
+  @@index([referredBy])
   @@map("users")
 }
 
@@ -681,6 +701,28 @@ model Product {
   @@index([brand])
   @@index([slug])
   @@map("products")
+}
+
+model DeletedProduct {
+  id          String        @id @default(uuid())
+  productId   String        @unique // Original product ID
+  sellerId    String
+  name        String
+  description String?       @db.Text
+  imageUrl    String?
+  images      Json?
+  category    String?
+  brand       String?
+  prices      Json?         // Store prices as JSON
+  deletedBy   String        // User who deleted it
+  deletedAt   DateTime      @default(now())
+  reason      String?       // Optional deletion reason
+  metadata    Json?         // Store all other product data
+
+  @@index([sellerId])
+  @@index([deletedAt])
+  @@index([deletedBy])
+  @@map("deleted_products")
 }
 
 model Favorite {
@@ -1411,4 +1453,54 @@ model SellerPayout {
   @@index([status])
   @@index([createdAt])
   @@map("seller_payouts")
+}
+
+// ============================================
+// REWARDS SYSTEM
+// ============================================
+
+enum RewardType {
+  PURCHASE         // Reward for making a purchase
+  REFERRAL         // Reward for referring a new user
+  SUBSCRIPTION     // Reward for subscription
+  FIRST_PURCHASE   // Bonus for first purchase
+  MILESTONE        // Achievement milestone
+  BONUS            // Special bonus
+}
+
+enum RewardStatus {
+  PENDING
+  EARNED
+  CLAIMED
+  EXPIRED
+}
+
+model Reward {
+  id          String       @id @default(uuid())
+  userId      String
+  type        RewardType
+  status      RewardStatus @default(EARNED)
+  // Reward details
+  points      Int          @default(0)    // Reward points
+  amount      Decimal?     @db.Decimal(20, 8) // Cash reward amount
+  currency    StablecoinType?
+  description String
+  // Expiry
+  expiresAt   DateTime?
+  claimedAt   DateTime?
+  // Reference
+  referenceType String?    // order, referral, subscription
+  referenceId   String?    // ID of the related entity
+  // Metadata
+  metadata    Json?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@map("rewards")
 }

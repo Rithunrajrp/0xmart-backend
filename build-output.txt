@@ -1,0 +1,60 @@
+
+> 0xmart-backend@0.0.1 build
+> nest build
+
+[96msrc/modules/auth/services/token.service.ts[0m:[93m19[0m:[93m7[0m - [91merror[0m[90m TS2322: [0mType 'string' is not assignable to type 'UserRole'.
+
+[7m19[0m       role,
+[7m  [0m [91m      ~~~~[0m
+
+  [96msrc/modules/auth/strategies/jwt.strategy.ts[0m:[93m11[0m:[93m3[0m
+    [7m11[0m   role: UserRole;
+    [7m  [0m [96m  ~~~~[0m
+    The expected type comes from property 'role' which is declared here on type 'JwtPayload'
+[96msrc/modules/auth/services/token.service.ts[0m:[93m23[0m:[93m23[0m - [91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 1 of 3, '(payload: string, options?: Omit<JwtSignOptions, keyof SignOptions> | undefined): Promise<string>', gave the following error.
+    Argument of type 'JwtPayload' is not assignable to parameter of type 'string'.
+  Overload 2 of 3, '(payload: Buffer<ArrayBufferLike>, options?: JwtSignOptions | undefined): Promise<string>', gave the following error.
+    Argument of type 'JwtPayload' is not assignable to parameter of type 'Buffer<ArrayBufferLike>'.
+      Type 'JwtPayload' is missing the following properties from type 'Buffer<ArrayBufferLike>': slice, subarray, write, toJSON, and 102 more.
+  Overload 3 of 3, '(payload: JwtPayload, options?: JwtSignOptions | undefined): Promise<string>', gave the following error.
+    Type 'string' is not assignable to type 'number | StringValue | undefined'.
+
+[7m23[0m       this.jwtService.signAsync(payload, {
+[7m  [0m [91m                      ~~~~~~~~~[0m
+
+[96msrc/modules/auth/services/token.service.ts[0m:[93m27[0m:[93m23[0m - [91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 1 of 3, '(payload: string, options?: Omit<JwtSignOptions, keyof SignOptions> | undefined): Promise<string>', gave the following error.
+    Argument of type 'JwtPayload' is not assignable to parameter of type 'string'.
+  Overload 2 of 3, '(payload: Buffer<ArrayBufferLike>, options?: JwtSignOptions | undefined): Promise<string>', gave the following error.
+    Argument of type 'JwtPayload' is not assignable to parameter of type 'Buffer<ArrayBufferLike>'.
+      Type 'JwtPayload' is missing the following properties from type 'Buffer<ArrayBufferLike>': slice, subarray, write, toJSON, and 102 more.
+  Overload 3 of 3, '(payload: JwtPayload, options?: JwtSignOptions | undefined): Promise<string>', gave the following error.
+    Type 'string' is not assignable to type 'number | StringValue | undefined'.
+
+[7m27[0m       this.jwtService.signAsync(payload, {
+[7m  [0m [91m                      ~~~~~~~~~[0m
+
+[96msrc/modules/rewards/rewards.service.ts[0m:[93m75[0m:[93m18[0m - [91merror[0m[90m TS2345: [0mArgument of type '{ type: RewardType; description: string; id: string; status: RewardStatus; createdAt: Date; updatedAt: Date; metadata: JsonValue; expiresAt: Date | null; ... 6 more ...; referenceId: string | null; }' is not assignable to parameter of type 'never'.
+
+[7m75[0m     rewards.push(purchaseReward);
+[7m  [0m [91m                 ~~~~~~~~~~~~~~[0m
+[96msrc/modules/rewards/rewards.service.ts[0m:[93m92[0m:[93m20[0m - [91merror[0m[90m TS2345: [0mArgument of type '{ type: RewardType; description: string; id: string; status: RewardStatus; createdAt: Date; updatedAt: Date; metadata: JsonValue; expiresAt: Date | null; ... 6 more ...; referenceId: string | null; }' is not assignable to parameter of type 'never'.
+
+[7m92[0m       rewards.push(firstPurchaseReward);
+[7m  [0m [91m                   ~~~~~~~~~~~~~~~~~~~[0m
+[96msrc/modules/rewards/rewards.service.ts[0m:[93m129[0m:[93m18[0m - [91merror[0m[90m TS2345: [0mArgument of type '{ type: RewardType; description: string; id: string; status: RewardStatus; createdAt: Date; updatedAt: Date; metadata: JsonValue; expiresAt: Date | null; ... 6 more ...; referenceId: string | null; }' is not assignable to parameter of type 'never'.
+
+[7m129[0m     rewards.push(referrerReward);
+[7m   [0m [91m                 ~~~~~~~~~~~~~~[0m
+[96msrc/modules/rewards/rewards.service.ts[0m:[93m146[0m:[93m18[0m - [91merror[0m[90m TS2345: [0mArgument of type '{ type: RewardType; description: string; id: string; status: RewardStatus; createdAt: Date; updatedAt: Date; metadata: JsonValue; expiresAt: Date | null; ... 6 more ...; referenceId: string | null; }' is not assignable to parameter of type 'never'.
+
+[7m146[0m     rewards.push(refereeReward);
+[7m   [0m [91m                 ~~~~~~~~~~~~~[0m
+[96msrc/modules/user-management/user-management.service.ts[0m:[93m119[0m:[93m7[0m - [91merror[0m[90m TS2367: [0mThis comparison appears to be unintentional because the types '"MOBILE" | "WHALE" | "MEMBER"' and '"STANDARD"' have no overlap.
+
+[7m119[0m       user.userType === UserType.STANDARD &&
+[7m   [0m [91m      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+Found 8 error(s).
+

@@ -1,0 +1,29 @@
+
+> 0xmart-backend@0.0.1 build
+> nest build
+
+[96msrc/modules/auth/services/token.service.ts[0m:[93m26[0m:[93m9[0m - [91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 1 of 3, '(payload: string, options?: Omit<JwtSignOptions, keyof SignOptions> | undefined): Promise<string>', gave the following error.
+    Object literal may only specify known properties, and 'expiresIn' does not exist in type 'Omit<JwtSignOptions, keyof SignOptions>'.
+  Overload 2 of 3, '(payload: Buffer<ArrayBufferLike>, options?: JwtSignOptions | undefined): Promise<string>', gave the following error.
+    Type 'string' is not assignable to type 'number | StringValue | undefined'.
+  Overload 3 of 3, '(payload: any, options?: JwtSignOptions | undefined): Promise<string>', gave the following error.
+    Type 'string' is not assignable to type 'number | StringValue | undefined'.
+
+[7m26[0m         expiresIn: this.configService.get<string>('jwt.expiresIn') ?? '30d',
+[7m  [0m [91m        ~~~~~~~~~[0m
+
+[96msrc/modules/auth/services/token.service.ts[0m:[93m30[0m:[93m9[0m - [91merror[0m[90m TS2769: [0mNo overload matches this call.
+  Overload 1 of 3, '(payload: string, options?: Omit<JwtSignOptions, keyof SignOptions> | undefined): Promise<string>', gave the following error.
+    Object literal may only specify known properties, and 'expiresIn' does not exist in type 'Omit<JwtSignOptions, keyof SignOptions>'.
+  Overload 2 of 3, '(payload: Buffer<ArrayBufferLike>, options?: JwtSignOptions | undefined): Promise<string>', gave the following error.
+    Type 'string' is not assignable to type 'number | StringValue | undefined'.
+  Overload 3 of 3, '(payload: any, options?: JwtSignOptions | undefined): Promise<string>', gave the following error.
+    Type 'string' is not assignable to type 'number | StringValue | undefined'.
+
+[7m30[0m         expiresIn:
+[7m  [0m [91m        ~~~~~~~~~[0m
+
+
+Found 2 error(s).
+

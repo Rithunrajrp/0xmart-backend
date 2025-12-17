@@ -42,6 +42,15 @@ export class CreateProductDto {
   @IsOptional()
   imageUrl?: string;
 
+  @ApiProperty({
+    example: ['https://example.com/image1.jpg', 'https://example.com/image2.jpg'],
+    description: 'Array of product image URLs (max 10)',
+    required: false
+  })
+  @IsArray()
+  @IsOptional()
+  images?: string[];
+
   @ApiProperty({ example: 'Coffee' })
   @IsString()
   @IsOptional()
