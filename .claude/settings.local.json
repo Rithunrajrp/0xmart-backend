@@ -14,7 +14,16 @@
       "Bash(powershell -Command \"Set-Location ''E:\\company\\0xMart\\0xmart-backend''; [Environment]::SetEnvironmentVariable(''DATABASE_URL'', ''postgresql://postgres:P0s7@988611@localhost:5432/0xmartdb?schema=public'', ''Process''); npx prisma migrate diff --from-url ''postgresql://postgres:P0s7@988611@localhost:5432/0xmartdb?schema=public'' --to-schema-datamodel prisma/schema.prisma --script\")",
       "Bash(powershell:*)",
       "Bash(git add:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(node scripts/generateWallet.js:*)",
+      "Bash(npm run compile:*)",
+      "Bash(npx hardhat run:*)",
+      "Bash(sui:*)",
+      "Bash(solana-keygen new:*)",
+      "Bash(where:*)",
+      "Bash(cmd /c \"C:\\Users\\RITHUN\\.cargo\\bin\\solana-keygen.exe new --outfile solana-wallet.json --no-bip39-passphrase --force\")",
+      "Bash(C:/Users/RITHUN/.cargo/bin/solana-keygen.exe:*)",
+      "Bash(anchor:*)"
     ],
     "deny": [],
     "ask": []

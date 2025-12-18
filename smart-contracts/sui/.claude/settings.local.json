@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash($env:LIBCLANG_PATH = \"E:\\Projects\\LLVM\\bin\")",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(export LIBCLANG_PATH=\"E:\\Projects\\LLVM\\bin\")",
+      "Bash(echo:*)",
+      "Bash(powershell -Command \"[System.Environment]::SetEnvironmentVariable(''LIBCLANG_PATH'', ''E:\\Projects\\LLVM\\bin'', [System.EnvironmentVariableTarget]::User)\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

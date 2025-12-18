@@ -1,9 +1,9 @@
 {
   "network": "sepolia",
   "chainId": "11155111",
-  "contractAddress": "0xB01Ad2dDA2Fa80edd70142c60B600693cD49B557",
-  "hotWalletAddress": "0x444dB037770Fe4583188f9A4807d356D8352Bd18",
-  "deployer": "0x444dB037770Fe4583188f9A4807d356D8352Bd18",
-  "deploymentTime": "2025-12-09T18:01:40.650Z",
-  "blockNumber": 9804484
+  "contractAddress": "0xfFfD214731036E826A283d1600c967771fDdABAe",
+  "hotWalletAddress": "0x0b8338c719E6b9627E27b9D984d72b5278b17F10",
+  "deployer": "0x0b8338c719E6b9627E27b9D984d72b5278b17F10",
+  "deploymentTime": "2025-12-18T07:42:15.124Z",
+  "blockNumber": 9865151
 }

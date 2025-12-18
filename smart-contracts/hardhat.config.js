@@ -28,7 +28,12 @@ module.exports = {
     mumbai: {
       url: process.env.POLYGON_MUMBAI_RPC_URL || "",
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
-      chainId: 80001,
+      chainId: 80002, // Polygon Amoy (Mumbai deprecated)
+    },
+    amoy: {
+      url: process.env.POLYGON_MUMBAI_RPC_URL || "",
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+      chainId: 80002,
     },
     bscTestnet: {
       url: process.env.BSC_TESTNET_RPC_URL || "https://data-seed-prebsc-1-s1.binance.org:8545",

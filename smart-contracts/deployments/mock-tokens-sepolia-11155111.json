@@ -1,29 +1,29 @@
 {
   "network": "sepolia",
   "chainId": "11155111",
-  "deployer": "0x444dB037770Fe4583188f9A4807d356D8352Bd18",
-  "deploymentTime": "2025-12-09T18:03:14.056Z",
+  "deployer": "0x0b8338c719E6b9627E27b9D984d72b5278b17F10",
+  "deploymentTime": "2025-12-18T07:44:27.189Z",
   "tokens": {
     "USDT": {
-      "address": "0xC3f4d3E184c54947Bb60a5B3751F69acd3F79363",
+      "address": "0x78B3EeCea6a1f17a5552566619F3570C58C87930",
       "decimals": 6,
       "symbol": "USDT",
       "name": "Tether USD"
     },
     "USDC": {
-      "address": "0x9Ee3b1D73B6C2370Da6Ac7e5688B9aC495104383",
+      "address": "0x33B88bB907eE71cBA2c95666bb5b807b49a14d80",
       "decimals": 6,
       "symbol": "USDC",
       "name": "USD Coin"
     },
     "DAI": {
-      "address": "0x4016859e142e9Ed9DE77F718c986EeC31bbBcD61",
+      "address": "0x467C1A0F1B3330681d69eA154904ee70bbeA9e13",
       "decimals": 18,
       "symbol": "DAI",
       "name": "Dai Stablecoin"
     },
     "BUSD": {
-      "address": "0xE66dDDbb1FDCF7F57f4b775c9C05f749CbCc4291",
+      "address": "0x902d76b5083a2368Fe6c758C5E00F3325E55A22A",
       "decimals": 18,
       "symbol": "BUSD",
       "name": "Binance USD"

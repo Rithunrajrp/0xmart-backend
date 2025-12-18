@@ -308,7 +308,8 @@ module oxmart::payment {
     /// Helper function to convert type to string
     fun type_to_string<T>(): String {
         let type_name = std::type_name::get<T>();
-        string::utf8(std::ascii::into_bytes(type_name))
+        let ascii_string = std::type_name::into_string(type_name);
+        string::from_ascii(ascii_string)
     }
 
     /// View functions

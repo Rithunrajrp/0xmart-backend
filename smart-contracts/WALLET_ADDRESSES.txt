@@ -1,0 +1,28 @@
+═══════════════════════════════════════════════════════════════
+  0xMart Testnet Wallet Addresses - Quick Reference
+═══════════════════════════════════════════════════════════════
+
+SUI TESTNET
+───────────────────────────────────────────────────────────────
+Address: 0x3d543ec09b0ce4bf5f9ea4431fd0f2aac16148ad11180d09c65c704028fc8cfb
+Faucet:  https://faucet.sui.io/
+Command: sui client faucet
+
+
+SOLANA DEVNET
+───────────────────────────────────────────────────────────────
+Address: 71jYLbrjnbksLZJ5qCn3b6Xmrr2426xqPJKUHfUSZjWT
+Faucet:  https://faucet.solana.com/
+Command: solana airdrop 2 71jYLbrjnbksLZJ5qCn3b6Xmrr2426xqPJKUHfUSZjWT --url devnet
+
+
+TON TESTNET
+───────────────────────────────────────────────────────────────
+Address: kQAtHOPYIhRP1f_iXXmoLrpQapUsbVSMET7hQJpW0Dx4CEvL
+Faucet:  https://t.me/testgiver_ton_bot (Telegram)
+         https://faucet.toncoin.org/
+
+
+═══════════════════════════════════════════════════════════════
+IMPORTANT: Fund these wallets before deploying contracts!
+═══════════════════════════════════════════════════════════════

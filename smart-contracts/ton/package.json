@@ -10,12 +10,13 @@
     "add-tokens:mainnet": "ts-node scripts/add-tokens.ts --network=mainnet"
   },
   "dependencies": {
-    "@ton/core": "^0.56.0",
-    "@ton/crypto": "^3.2.0",
-    "@ton/ton": "^13.11.0"
+    "@ton/core": "^0.62.0",
+    "@ton/crypto": "^3.3.0",
+    "@ton/ton": "^16.1.0",
+    "dotenv": "^17.2.3"
   },
   "devDependencies": {
-    "@tact-lang/compiler": "^1.4.3",
+    "@tact-lang/compiler": "^1.6.13",
     "@types/node": "^20.11.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
