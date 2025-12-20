@@ -97,6 +97,7 @@ export class ApiKeysService {
       subscriptionTier?: string;
       webhookUrl?: string;
       supportedNetworks?: string[]; // Array of NetworkType values
+      isTestnetMode?: boolean; // If true, uses testnet networks
     },
   ): Promise<{
     id: string;
@@ -106,6 +107,7 @@ export class ApiKeysService {
     prefix: string;
     tier: string;
     supportedNetworks: string[];
+    isTestnetMode: boolean;
     createdAt: Date;
     expiresAt?: Date;
   }> {
@@ -193,6 +195,7 @@ export class ApiKeysService {
         webhookSecret,
         billingResetAt: this.getNextBillingResetDate(),
         creationFeePaid: false, // Will be updated after payment
+        isTestnetMode: options?.isTestnetMode || false,
       },
     });
 
@@ -223,6 +226,7 @@ export class ApiKeysService {
       apiSecret, // Only returned once!
       prefix: apiKeyRecord.prefix,
       tier,
+      isTestnetMode: apiKeyRecord.isTestnetMode,
       createdAt: apiKeyRecord.createdAt,
       expiresAt: apiKeyRecord.expiresAt || undefined,
     };
@@ -311,6 +315,8 @@ export class ApiKeysService {
         rateLimitPerDay: true,
         webhookUrl: true,
         billingResetAt: true,
+        isTestnetMode: true,
+        supportedNetworks: true,
       },
     });
 
@@ -426,6 +432,7 @@ export class ApiKeysService {
     userId: string;
     apiKeyId: string;
     tier: string;
+    isTestnetMode: boolean;
   } | null> {
     if (!apiKey || !apiKey.startsWith('xmart_')) {
       return null;
@@ -483,6 +490,7 @@ export class ApiKeysService {
       userId: apiKeyRecord.userId,
       apiKeyId: apiKeyRecord.id,
       tier: apiKeyRecord.subscriptionTier,
+      isTestnetMode: apiKeyRecord.isTestnetMode,
     };
   }
 

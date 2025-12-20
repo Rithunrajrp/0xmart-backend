@@ -1,0 +1,9 @@
+{
+  "network": "optimismSepolia",
+  "chainId": "11155420",
+  "contractAddress": "0xfFfD214731036E826A283d1600c967771fDdABAe",
+  "hotWalletAddress": "0x0b8338c719E6b9627E27b9D984d72b5278b17F10",
+  "deployer": "0x0b8338c719E6b9627E27b9D984d72b5278b17F10",
+  "deploymentTime": "2025-12-20T06:58:15.573Z",
+  "blockNumber": 37205675
+}

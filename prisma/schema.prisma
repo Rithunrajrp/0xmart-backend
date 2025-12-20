@@ -1,6 +1,3 @@
-// Prisma Schema for Stablecoin Commerce Platform
-// Database: PostgreSQL
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,80 +7,43 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// USER MANAGEMENT
-// ============================================
-
-enum UserRole {
-  USER
-  ADMIN
-  SUPER_ADMIN
-  EMPLOYEE
-}
-
-enum UserType {
-  MOBILE      // Basic mobile user
-  WHALE       // High-value investor/trader
-  MEMBER      // Premium member
-  STANDARD    // Standard user (default)
-}
-
-enum UserStatus {
-  ACTIVE
-  SUSPENDED
-  DEACTIVATED
-}
-
-enum KYCStatus {
-  NOT_STARTED
-  PENDING
-  APPROVED
-  REJECTED
-  EXPIRED
-}
-
 model User {
-  id            String      @id @default(uuid())
-  phoneNumber   String      @unique
-  countryCode   String
-  email         String?     @unique
-  role          UserRole    @default(USER)
-  userType      UserType    @default(STANDARD)
-  status        UserStatus  @default(ACTIVE)
-  kycStatus     KYCStatus   @default(NOT_STARTED)
-  kycProviderId String?
-  kycData       Json?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  lastLoginAt   DateTime?
-  metadata      Json?
-  // 2FA fields
-  twoFactorSecret String?   // TOTP secret for Google Authenticator
-  twoFactorEnabled Boolean  @default(false)
-
-  // Relations
-  wallets       Wallet[]
-  addresses     UserAddress[]
-  orders        Order[]
-  transactions  Transaction[]
-  sessions      UserSession[]
-  auditLogs     AuditLog[]
-  kycDocuments  KYCDocument[]
-  apiKeys       ApiKey[]
-  favorites     Favorite[]
-  employeeProfile Employee?
-  createdEmployees Employee[] @relation("CreatedByUser")
-  sellerProfile Seller?
-  // Referral system
-  referralCode String?   @unique  // User's unique referral code
-  referredBy  String?              // ID of user who referred this user
-  referredByUser User?   @relation("UserReferrals", fields: [referredBy], references: [id])
-  referrals   User[]     @relation("UserReferrals")
-  rewards     Reward[]
-  // User type upgrade tracking
-  totalSpent       Decimal @default(0) @db.Decimal(20, 8) // Total purchase amount
-  totalReferrals   Int     @default(0) // Number of successful referrals
-  subscriptionTier String? // Premium subscription tier if any
+  id                String        @id @default(uuid())
+  phoneNumber       String        @unique
+  countryCode       String
+  email             String?       @unique
+  role              UserRole      @default(USER)
+  status            UserStatus    @default(ACTIVE)
+  kycStatus         KYCStatus     @default(NOT_STARTED)
+  kycProviderId     String?
+  kycData           Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  lastLoginAt       DateTime?
+  metadata          Json?
+  twoFactorEnabled  Boolean       @default(false)
+  twoFactorSecret   String?
+  userType          UserType      @default(STANDARD)
+  referralCode      String?       @unique
+  referredBy        String?
+  totalSpent        Decimal       @default(0) @db.Decimal(20, 8)
+  totalReferrals    Int           @default(0)
+  subscriptionTier  String        @default("free")
+  apiKeys           ApiKey[]
+  auditLogs         AuditLog[]
+  createdEmployees  Employee[]    @relation("CreatedByUser")
+  employeeProfile   Employee?
+  favorites         Favorite[]
+  kycDocuments      KYCDocument[]
+  orders            Order[]
+  sellerProfile     Seller?
+  transactions      Transaction[]
+  addresses         UserAddress[]
+  sessions          UserSession[]
+  wallets           Wallet[]
+  referrer          User?         @relation("UserReferrals", fields: [referredBy], references: [id])
+  referrals         User[]        @relation("UserReferrals")
+  rewards           Reward[]
 
   @@index([phoneNumber])
   @@index([email])
@@ -104,8 +64,7 @@ model UserSession {
   expiresAt    DateTime
   createdAt    DateTime  @default(now())
   revokedAt    DateTime?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([token])
@@ -122,16 +81,927 @@ model KYCDocument {
   reviewedAt      DateTime?
   reviewedBy      String?
   rejectionReason String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("kyc_documents")
 }
 
-// ============================================
-// WALLET & BALANCES
-// ============================================
+model Wallet {
+  id             String         @id @default(uuid())
+  userId         String
+  stablecoinType StablecoinType
+  network        NetworkType
+  depositAddress String         @unique
+  balance        Decimal        @default(0) @db.Decimal(20, 8)
+  lockedBalance  Decimal        @default(0) @db.Decimal(20, 8)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deposits       Deposit[]
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  withdrawals    Withdrawal[]
+
+  @@unique([userId, stablecoinType, network])
+  @@index([userId])
+  @@index([depositAddress])
+  @@map("wallets")
+}
+
+model UserAddress {
+  id           String      @id @default(uuid())
+  userId       String
+  type         AddressType
+  label        String?
+  fullName     String
+  phone        String
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  state        String?
+  postalCode   String
+  country      String
+  isDefault    Boolean     @default(false)
+  metadata     Json?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  orders       Order[]
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, type])
+  @@index([userId, isDefault])
+  @@map("user_addresses")
+}
+
+model Employee {
+  id            String             @id @default(uuid())
+  userId        String             @unique
+  role          EmployeeRole
+  permissions   Json
+  department    String?
+  isActive      Boolean            @default(true)
+  createdBy     String
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  lastActiveAt  DateTime?
+  activities    EmployeeActivity[]
+  createdByUser User               @relation("CreatedByUser", fields: [createdBy], references: [id])
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([role])
+  @@index([isActive])
+  @@map("employees")
+}
+
+model EmployeeActivity {
+  id          String   @id @default(uuid())
+  employeeId  String
+  action      String
+  entityType  String
+  entityId    String
+  description String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+  @@map("employee_activities")
+}
+
+model MasterKey {
+  id                  String               @id @default(uuid())
+  network             BlockchainNetwork    @unique
+  encryptedSeed       String
+  encryptedPrivateKey String?
+  publicAddress       String               @unique
+  derivationPath      String?
+  createdBy           String
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  lastAccessedAt      DateTime?
+  lastAccessedBy      String?
+  isActive            Boolean              @default(true)
+  metadata            Json?
+  accessLogs          MasterKeyAccessLog[]
+
+  @@index([network])
+  @@index([createdBy])
+  @@map("master_keys")
+}
+
+model MasterKeyAccessLog {
+  id          String    @id @default(uuid())
+  masterKeyId String
+  accessedBy  String
+  action      String
+  ipAddress   String?
+  userAgent   String?
+  success     Boolean   @default(true)
+  reason      String?
+  createdAt   DateTime  @default(now())
+  masterKey   MasterKey @relation(fields: [masterKeyId], references: [id], onDelete: Cascade)
+
+  @@index([masterKeyId])
+  @@index([accessedBy])
+  @@index([createdAt])
+  @@map("master_key_access_logs")
+}
+
+model Transaction {
+  id                   String            @id @default(uuid())
+  userId               String
+  type                 TransactionType
+  status               TransactionStatus @default(PENDING)
+  stablecoinType       StablecoinType
+  network              NetworkType?
+  amount               Decimal           @db.Decimal(20, 8)
+  fee                  Decimal           @default(0) @db.Decimal(20, 8)
+  txHash               String?           @unique
+  fromAddress          String?
+  toAddress            String?
+  orderId              String?           @unique
+  metadata             Json?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  completedAt          DateTime?
+  failureReason        String?
+  apiCommission        Decimal?          @db.Decimal(20, 8)
+  apiKeyId             String?
+  blockNumber          String?
+  blockTimestamp       DateTime?
+  confirmations        Int?              @default(0)
+  gasUsed              String?
+  platformFee          Decimal?          @db.Decimal(20, 8)
+  smartContractAddress String?
+  order                Order?            @relation(fields: [orderId], references: [id])
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([txHash])
+  @@index([network])
+  @@index([apiKeyId])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+model Deposit {
+  id               String            @id @default(uuid())
+  walletId         String
+  txHash           String            @unique
+  fromAddress      String
+  amount           Decimal           @db.Decimal(20, 8)
+  confirmations    Int               @default(0)
+  requiredConfirms Int               @default(12)
+  status           TransactionStatus @default(PENDING)
+  network          NetworkType
+  blockNumber      BigInt?
+  createdAt        DateTime          @default(now())
+  confirmedAt      DateTime?
+  wallet           Wallet            @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([status])
+  @@index([txHash])
+  @@map("deposits")
+}
+
+model Withdrawal {
+  id            String            @id @default(uuid())
+  walletId      String
+  toAddress     String
+  amount        Decimal           @db.Decimal(20, 8)
+  networkFee    Decimal           @db.Decimal(20, 8)
+  txHash        String?           @unique
+  status        TransactionStatus @default(PENDING)
+  network       NetworkType
+  approvedBy    String?
+  approvedAt    DateTime?
+  createdAt     DateTime          @default(now())
+  processedAt   DateTime?
+  completedAt   DateTime?
+  failureReason String?
+  wallet        Wallet            @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([status])
+  @@map("withdrawals")
+}
+
+model FiatPurchase {
+  id               String              @id @default(uuid())
+  userId           String
+  provider         FiatPaymentProvider
+  providerTxId     String              @unique
+  stablecoinType   StablecoinType
+  fiatAmount       Decimal             @db.Decimal(20, 2)
+  fiatCurrency     String              @default("USD")
+  stablecoinAmount Decimal             @db.Decimal(20, 8)
+  exchangeRate     Decimal             @db.Decimal(20, 8)
+  processingFee    Decimal             @db.Decimal(20, 2)
+  status           FiatPaymentStatus   @default(INITIATED)
+  paymentMethod    String?
+  metadata         Json?
+  createdAt        DateTime            @default(now())
+  completedAt      DateTime?
+  failureReason    String?
+
+  @@index([userId])
+  @@index([status])
+  @@index([providerTxId])
+  @@map("fiat_purchases")
+}
+
+model Seller {
+  id                    String           @id @default(uuid())
+  companyName           String
+  tradingName           String?
+  sellerType            SellerType
+  status                SellerStatus     @default(PENDING_VERIFICATION)
+  registrationNumber    String?
+  taxId                 String?
+  businessLicense       String?
+  email                 String           @unique
+  phone                 String?
+  website               String?
+  addressLine1          String?
+  addressLine2          String?
+  city                  String?
+  state                 String?
+  postalCode            String?
+  country               String
+  logo                  String?
+  banner                String?
+  description           String?
+  rating                Decimal          @default(0) @db.Decimal(3, 2)
+  totalReviews          Int              @default(0)
+  totalSales            Int              @default(0)
+  verifiedAt            DateTime?
+  verifiedBy            String?
+  rejectionReason       String?
+  bankAccountName       String?
+  bankAccountNumber     String?
+  bankName              String?
+  bankRoutingNumber     String?
+  bankSwiftCode         String?
+  payoutWalletAddress   String?
+  payoutNetwork         NetworkType?
+  commissionRate        Decimal          @default(0.10) @db.Decimal(5, 4)
+  minOrderValue         Decimal?         @db.Decimal(20, 8)
+  maxOrderValue         Decimal?         @db.Decimal(20, 8)
+  metadata              Json?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  userId                String?          @unique
+  onboardingTokenExpiry DateTime?
+  onboardingCompletedAt DateTime?
+  documentsSubmittedAt  DateTime?
+  approvedAt            DateTime?
+  approvedBy            String?
+  activatedAt           DateTime?
+  activatedBy           String?
+  isInhouse             Boolean          @default(false)
+  onboardingToken       String?          @unique
+  products              Product[]
+  sellerDocuments       SellerDocument[]
+  sellerPayouts         SellerPayout[]
+  user                  User?            @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([sellerType])
+  @@index([country])
+  @@index([companyName])
+  @@index([onboardingToken])
+  @@index([email])
+  @@map("sellers")
+}
+
+model SellerDocument {
+  id            String         @id @default(uuid())
+  sellerId      String
+  documentType  String
+  documentUrl   String
+  reviewedAt    DateTime?
+  reviewedBy    String?
+  rejectionNote String?
+  createdAt     DateTime       @default(now())
+  fileSize      Int?
+  mimeType      String?
+  uploadedAt    DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  fileName      String
+  status        DocumentStatus @default(PENDING)
+  seller        Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([sellerId])
+  @@index([documentType])
+  @@index([status])
+  @@map("seller_documents")
+}
+
+model Product {
+  id                String          @id @default(uuid())
+  name              String
+  description       String?
+  imageUrl          String?
+  category          String?
+  status            ProductStatus   @default(PENDING_REVIEW)
+  metadata          Json?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  barcode           String?
+  brand             String?
+  dimensions        Json?
+  images            Json?
+  isDigital         Boolean         @default(false)
+  isFeatured        Boolean         @default(false)
+  lowStockThreshold Int             @default(10)
+  metaDescription   String?
+  metaTitle         String?
+  rating            Decimal         @default(0) @db.Decimal(3, 2)
+  sellerId          String
+  shippingClass     String?
+  shortDescription  String?
+  sku               String?
+  slug              String?         @unique
+  specifications    Json?
+  stock             Int             @default(0)
+  subcategory       String?
+  tags              Json?
+  totalReviews      Int             @default(0)
+  videoUrl          String?
+  weight            Decimal?        @db.Decimal(10, 2)
+  adClicks          AdClick[]
+  externalOrders    ExternalOrder[]
+  favorites         Favorite[]
+  orderItems        OrderItem[]
+  prices            ProductPrice[]
+  reviews           ProductReview[]
+  seller            Seller          @relation(fields: [sellerId], references: [id])
+
+  @@index([sellerId])
+  @@index([status])
+  @@index([category])
+  @@index([brand])
+  @@index([slug])
+  @@map("products")
+}
+
+model DeletedProduct {
+  id          String   @id @default(uuid())
+  productId   String   @unique
+  sellerId    String
+  name        String
+  description String?
+  imageUrl    String?
+  images      Json?
+  category    String?
+  brand       String?
+  prices      Json?
+  deletedBy   String
+  deletedAt   DateTime @default(now())
+  reason      String?
+  metadata    Json?
+
+  @@index([sellerId])
+  @@index([deletedAt])
+  @@index([deletedBy])
+  @@map("deleted_products")
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+  @@map("favorites")
+}
+
+model ProductReview {
+  id           String   @id @default(uuid())
+  productId    String
+  customerId   String?
+  userId       String?
+  rating       Int
+  title        String?
+  comment      String?
+  isVerified   Boolean  @default(false)
+  isApproved   Boolean  @default(false)
+  helpfulCount Int      @default(0)
+  images       Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([rating])
+  @@index([isApproved])
+  @@map("product_reviews")
+}
+
+model ProductPrice {
+  id             String         @id @default(uuid())
+  productId      String
+  stablecoinType StablecoinType
+  price          Decimal        @db.Decimal(20, 8)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  product        Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, stablecoinType])
+  @@index([productId])
+  @@map("product_prices")
+}
+
+model Order {
+  id                 String         @id @default(uuid())
+  userId             String
+  orderNumber        String         @unique
+  stablecoinType     StablecoinType
+  subtotal           Decimal        @default(0) @db.Decimal(20, 8)
+  tax                Decimal        @default(0) @db.Decimal(20, 8)
+  total              Decimal        @default(0) @db.Decimal(20, 8)
+  status             OrderStatus    @default(PENDING)
+  shippingAddress    Json?
+  trackingNumber     String?
+  metadata           Json?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  paidAt             DateTime?
+  shippedAt          DateTime?
+  deliveredAt        DateTime?
+  cancelledAt        DateTime?
+  blockNumber        String?
+  buyerAddress       String?
+  network            NetworkType?
+  paymentConfirmedAt DateTime?
+  platformFee        Decimal        @default(0) @db.Decimal(20, 8)
+  shippingAddressId  String?
+  totalAmount        Decimal        @default(0) @db.Decimal(20, 8)
+  transactionHash    String?        @unique
+  items              OrderItem[]
+  shippingAddr       UserAddress?   @relation(fields: [shippingAddressId], references: [id])
+  user               User           @relation(fields: [userId], references: [id])
+  transactions       Transaction?
+
+  @@index([userId])
+  @@index([status])
+  @@index([orderNumber])
+  @@index([createdAt])
+  @@index([transactionHash])
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String         @id @default(uuid())
+  orderId        String
+  productId      String
+  quantity       Int
+  stablecoinType StablecoinType
+  pricePerUnit   Decimal        @db.Decimal(20, 8)
+  totalPrice     Decimal        @db.Decimal(20, 8)
+  metadata       Json?
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product        Product        @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model Notification {
+  id        String              @id @default(uuid())
+  userId    String?
+  type      NotificationType
+  channel   NotificationChannel
+  recipient String
+  subject   String?
+  message   String
+  metadata  Json?
+  sentAt    DateTime?
+  status    String              @default("pending")
+  createdAt DateTime            @default(now())
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  userId     String?
+  action     AuditAction
+  entityType String?
+  entityId   String?
+  ipAddress  String?
+  userAgent  String?
+  metadata   Json?
+  createdAt  DateTime    @default(now())
+  user       User?       @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemConfig {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_config")
+}
+
+model ExchangeRate {
+  id             String         @id @default(uuid())
+  stablecoinType StablecoinType
+  fiatCurrency   String
+  rate           Decimal        @db.Decimal(20, 8)
+  provider       String
+  validUntil     DateTime
+  createdAt      DateTime       @default(now())
+
+  @@unique([stablecoinType, fiatCurrency])
+  @@index([validUntil])
+  @@map("exchange_rates")
+}
+
+model ApiKey {
+  id                  String             @id @default(uuid())
+  userId              String
+  name                String
+  keyHash             String             @unique
+  secretHash          String?
+  prefix              String
+  status              ApiKeyStatus       @default(ACTIVE)
+  lastUsedAt          DateTime?
+  expiresAt           DateTime?
+  rateLimitPerMinute  Int                @default(60)
+  rateLimitPerDay     Int                @default(10000)
+  subscriptionTier    String             @default("free")
+  monthlyQuota        Int                @default(1000)
+  usageThisMonth      Int                @default(0)
+  billingResetAt      DateTime?
+  commissionRate      Decimal            @default(0.05) @db.Decimal(5, 4)
+  totalEarnings       Decimal            @default(0) @db.Decimal(20, 8)
+  pendingEarnings     Decimal            @default(0) @db.Decimal(20, 8)
+  availableEarnings   Decimal            @default(0) @db.Decimal(20, 8)
+  payoutWalletAddress String?
+  payoutNetwork       NetworkType?
+  webhookUrl          String?
+  webhookSecret       String?
+  metadata            Json?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  revokedAt           DateTime?
+  creationFeeAmount   Decimal?           @db.Decimal(20, 8)
+  creationFeePaid     Boolean            @default(false)
+  creationFeeTxHash   String?
+  supportedNetworks   NetworkType[]
+  isTestnetMode       Boolean            @default(false) // If true, uses testnet networks for all transactions
+  adClicks            AdClick[]
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usageLogs           ApiUsageLog[]
+  payouts             CommissionPayout[]
+  commissions         Commission[]
+  externalOrders      ExternalOrder[]
+
+  @@index([userId])
+  @@index([keyHash])
+  @@index([status])
+  @@index([prefix])
+  @@map("api_keys")
+}
+
+model ApiUsageLog {
+  id             String   @id @default(uuid())
+  apiKeyId       String
+  endpoint       String
+  method         String
+  statusCode     Int
+  responseTimeMs Int
+  ipAddress      String?
+  userAgent      String?
+  requestBody    Json?
+  createdAt      DateTime @default(now())
+  apiKey         ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@index([apiKeyId])
+  @@index([createdAt])
+  @@index([endpoint])
+  @@map("api_usage_logs")
+}
+
+model AdClick {
+  id                  String         @id @default(uuid())
+  apiKeyId            String
+  productId           String
+  clickToken          String         @unique
+  customerSessionId   String?
+  customerPreferences Json?
+  clickedAt           DateTime?
+  convertedAt         DateTime?
+  orderId             String?        @unique
+  metadata            Json?
+  createdAt           DateTime       @default(now())
+  expiresAt           DateTime
+  apiKey              ApiKey         @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  order               ExternalOrder? @relation(fields: [orderId], references: [id])
+  product             Product        @relation(fields: [productId], references: [id])
+
+  @@index([apiKeyId])
+  @@index([productId])
+  @@index([clickToken])
+  @@index([createdAt])
+  @@map("ad_clicks")
+}
+
+model ExternalCustomer {
+  id                 String                     @id @default(uuid())
+  phone              String?                    @unique
+  countryCode        String?
+  email              String?                    @unique
+  emailVerified      Boolean                    @default(false)
+  phoneVerified      Boolean                    @default(false)
+  verificationStatus CustomerVerificationStatus @default(PENDING)
+  lastVerifiedAt     DateTime?
+  fullName           String?
+  addressLine1       String?
+  addressLine2       String?
+  city               String?
+  state              String?
+  postalCode         String?
+  country            String?
+  landmark           String?
+  riskScore          Int                        @default(0)
+  isSuspicious       Boolean                    @default(false)
+  lastActivityAt     DateTime?
+  metadata           Json?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  depositAddresses   ExternalDepositAddress[]
+  orders             ExternalOrder[]
+  otpVerifications   ExternalOtpVerification[]
+
+  @@index([phone])
+  @@index([email])
+  @@index([verificationStatus])
+  @@map("external_customers")
+}
+
+model ExternalOtpVerification {
+  id          String           @id @default(uuid())
+  customerId  String
+  type        String
+  recipient   String
+  otp         String
+  attempts    Int              @default(0)
+  maxAttempts Int              @default(5)
+  verified    Boolean          @default(false)
+  expiresAt   DateTime
+  createdAt   DateTime         @default(now())
+  customer    ExternalCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([recipient])
+  @@index([expiresAt])
+  @@map("external_otp_verifications")
+}
+
+model ExternalDepositAddress {
+  id             String               @id @default(uuid())
+  customerId     String
+  network        NetworkType
+  stablecoinType StablecoinType
+  address        String
+  status         DepositAddressStatus @default(ACTIVE)
+  assignedAt     DateTime             @default(now())
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  pendingBalance Decimal              @default(0) @db.Decimal(20, 8)
+  totalReceived  Decimal              @default(0) @db.Decimal(20, 8)
+  metadata       Json?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  customer       ExternalCustomer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orders         ExternalOrder[]
+
+  @@unique([customerId, network, stablecoinType])
+  @@index([customerId])
+  @@index([address])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("external_deposit_addresses")
+}
+
+model ExternalOrder {
+  id               String                  @id @default(uuid())
+  apiKeyId         String
+  customerId       String
+  depositAddressId String?
+  orderNumber      String                  @unique
+  productId        String
+  quantity         Int                     @default(1)
+  stablecoinType   StablecoinType
+  network          NetworkType?
+  pricePerUnit     Decimal                 @db.Decimal(20, 8)
+  subtotal         Decimal                 @db.Decimal(20, 8)
+  tax              Decimal                 @default(0) @db.Decimal(20, 8)
+  total            Decimal                 @db.Decimal(20, 8)
+  status           ExternalOrderStatus     @default(INITIATED)
+  depositAddress   String?
+  expectedAmount   Decimal?                @db.Decimal(20, 8)
+  receivedAmount   Decimal?                @db.Decimal(20, 8)
+  txHash           String?                 @unique
+  paymentExpiresAt DateTime?
+  paidAt           DateTime?
+  shippingAddress  Json?
+  trackingNumber   String?
+  shippedAt        DateTime?
+  deliveredAt      DateTime?
+  idempotencyKey   String?                 @unique
+  metadata         Json?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  cancelledAt      DateTime?
+  expiresAt        DateTime?
+  adClick          AdClick?
+  commission       Commission?
+  apiKey           ApiKey                  @relation(fields: [apiKeyId], references: [id])
+  customer         ExternalCustomer        @relation(fields: [customerId], references: [id])
+  depositAddrRef   ExternalDepositAddress? @relation(fields: [depositAddressId], references: [id])
+  product          Product                 @relation(fields: [productId], references: [id])
+  webhookLogs      WebhookLog[]
+
+  @@index([apiKeyId])
+  @@index([customerId])
+  @@index([status])
+  @@index([orderNumber])
+  @@index([txHash])
+  @@index([idempotencyKey])
+  @@index([createdAt])
+  @@map("external_orders")
+}
+
+model WebhookLog {
+  id            String           @id @default(uuid())
+  orderId       String
+  eventType     WebhookEventType
+  webhookUrl    String
+  payload       Json
+  status        WebhookStatus    @default(PENDING)
+  statusCode    Int?
+  response      String?
+  attempts      Int              @default(0)
+  maxAttempts   Int              @default(5)
+  lastAttemptAt DateTime?
+  nextRetryAt   DateTime?
+  deliveredAt   DateTime?
+  createdAt     DateTime         @default(now())
+  order         ExternalOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([status])
+  @@index([eventType])
+  @@index([nextRetryAt])
+  @@map("webhook_logs")
+}
+
+model Commission {
+  id                 String            @id @default(uuid())
+  apiKeyId           String
+  externalOrderId    String            @unique
+  orderTotal         Decimal           @db.Decimal(20, 8)
+  commissionRate     Decimal           @default(0.05) @db.Decimal(5, 4)
+  commissionAmount   Decimal           @db.Decimal(20, 8)
+  stablecoinType     StablecoinType
+  network            NetworkType?
+  status             CommissionStatus  @default(PENDING)
+  confirmedAt        DateTime?
+  availableAt        DateTime?
+  paidAt             DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?
+  payoutId           String?
+  metadata           Json?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  apiKey             ApiKey            @relation(fields: [apiKeyId], references: [id])
+  externalOrder      ExternalOrder     @relation(fields: [externalOrderId], references: [id])
+  payout             CommissionPayout? @relation(fields: [payoutId], references: [id])
+
+  @@index([apiKeyId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([payoutId])
+  @@map("commissions")
+}
+
+model CommissionPayout {
+  id             String         @id @default(uuid())
+  apiKeyId       String
+  totalAmount    Decimal        @db.Decimal(20, 8)
+  stablecoinType StablecoinType
+  network        NetworkType
+  walletAddress  String
+  txHash         String?        @unique
+  status         PayoutStatus   @default(PENDING)
+  requestedAt    DateTime       @default(now())
+  processedAt    DateTime?
+  completedAt    DateTime?
+  failedAt       DateTime?
+  failureReason  String?
+  metadata       Json?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  apiKey         ApiKey         @relation(fields: [apiKeyId], references: [id])
+  commissions    Commission[]
+
+  @@index([apiKeyId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("commission_payouts")
+}
+
+model SellerPayout {
+  id             String             @id @default(uuid())
+  sellerId       String
+  grossAmount    Decimal            @db.Decimal(20, 8)
+  platformFee    Decimal            @db.Decimal(20, 8)
+  netAmount      Decimal            @db.Decimal(20, 8)
+  stablecoinType StablecoinType
+  network        NetworkType?
+  payoutMethod   String
+  walletAddress  String?
+  bankReference  String?
+  txHash         String?            @unique
+  status         SellerPayoutStatus @default(PENDING)
+  periodStart    DateTime
+  periodEnd      DateTime
+  requestedAt    DateTime?
+  processedAt    DateTime?
+  completedAt    DateTime?
+  failedAt       DateTime?
+  failureReason  String?
+  approvedBy     String?
+  approvedAt     DateTime?
+  orderIds       Json?
+  metadata       Json?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  seller         Seller             @relation(fields: [sellerId], references: [id])
+
+  @@index([sellerId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("seller_payouts")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+  EMPLOYEE
+}
+
+enum UserType {
+  MOBILE
+  WHALE
+  MEMBER
+  STANDARD
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum KYCStatus {
+  NOT_STARTED
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
 
 enum StablecoinType {
   USDT
@@ -147,79 +1017,23 @@ enum NetworkType {
   ARBITRUM
   OPTIMISM
   AVALANCHE
-  BASE
   SUI
   TON
+  BASE
   SOLANA
 }
-
-model Wallet {
-  id              String         @id @default(uuid())
-  userId          String
-  stablecoinType  StablecoinType
-  network         NetworkType
-  depositAddress  String         @unique
-  balance         Decimal        @default(0) @db.Decimal(20, 8)
-  lockedBalance   Decimal        @default(0) @db.Decimal(20, 8)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  deposits        Deposit[]
-  withdrawals     Withdrawal[]
-
-  @@unique([userId, stablecoinType, network])
-  @@index([userId])
-  @@index([depositAddress])
-  @@map("wallets")
-}
-
-// ============================================
-// USER ADDRESSES (NEW)
-// ============================================
 
 enum AddressType {
   SHIPPING
   BILLING
 }
 
-model UserAddress {
-  id          String      @id @default(uuid())
-  userId      String
-  type        AddressType
-  label       String?
-  fullName    String
-  phone       String
-  addressLine1 String
-  addressLine2 String?
-  city        String
-  state       String?
-  postalCode  String
-  country     String
-  isDefault   Boolean     @default(false)
-  metadata    Json?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orders Order[]
-
-  @@index([userId])
-  @@index([userId, type])
-  @@index([userId, isDefault])
-  @@map("user_addresses")
-}
-
-// ============================================
-// EMPLOYEE MANAGEMENT
-// ============================================
-
 enum EmployeeRole {
-  MERCHANT_ONBOARDING    // Approve merchant access
-  KYC_REVIEWER           // Verify and approve/reject KYC
-  PRODUCT_MANAGER        // Manage in-house products display
-  INVENTORY_MANAGER      // Update stock for products
-  CUSTOMER_SUPPORT       // Handle customer tickets
+  MERCHANT_ONBOARDING
+  KYC_REVIEWER
+  PRODUCT_MANAGER
+  INVENTORY_MANAGER
+  CUSTOMER_SUPPORT
 }
 
 enum EmployeePermission {
@@ -250,105 +1064,13 @@ enum EmployeePermission {
   EXPORT_DATA
 }
 
-model Employee {
-  id          String     @id @default(uuid())
-  userId      String     @unique
-  role        EmployeeRole
-  permissions Json       // Array of EmployeePermission
-  department  String?
-  isActive    Boolean    @default(true)
-  createdBy   String
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  lastActiveAt DateTime?
-
-  user          User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdByUser User @relation("CreatedByUser", fields: [createdBy], references: [id])
-  activities    EmployeeActivity[]
-
-  @@index([userId])
-  @@index([role])
-  @@index([isActive])
-  @@map("employees")
-}
-
-model EmployeeActivity {
-  id          String   @id @default(uuid())
-  employeeId  String
-  action      String   // e.g., "APPROVED_KYC", "UPDATED_PRODUCT"
-  entityType  String   // e.g., "kyc", "product", "merchant"
-  entityId    String
-  description String?  @db.Text
-  metadata    Json?    // Store before/after values
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
-
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-
-  @@index([employeeId])
-  @@index([action])
-  @@index([entityType])
-  @@index([createdAt])
-  @@map("employee_activities")
-}
-
-// ============================================
-// MASTER KEY STORAGE
-// ============================================
-
 enum BlockchainNetwork {
-  ETHEREUM      // ETH - also covers Polygon, BSC, Arbitrum, Optimism, Base (EVM compatible)
-  AVALANCHE     // AVAX
-  SUI           // SUI
-  TON           // TON
-  BITCOIN       // BTC (if needed later)
+  ETHEREUM
+  AVALANCHE
+  SUI
+  TON
+  BITCOIN
 }
-
-model MasterKey {
-  id                String           @id @default(uuid())
-  network           BlockchainNetwork @unique
-  encryptedSeed     String           @db.Text // AES-256-GCM encrypted BIP39 seed
-  encryptedPrivateKey String?        @db.Text // Encrypted private key (optional)
-  publicAddress     String           @unique
-  derivationPath    String?          // BIP44 path used
-  createdBy         String           // SuperAdmin who created it
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  lastAccessedAt    DateTime?
-  lastAccessedBy    String?
-  isActive          Boolean          @default(true)
-  metadata          Json?
-
-  accessLogs MasterKeyAccessLog[]
-
-  @@index([network])
-  @@index([createdBy])
-  @@map("master_keys")
-}
-
-model MasterKeyAccessLog {
-  id          String   @id @default(uuid())
-  masterKeyId String
-  accessedBy  String   // User ID
-  action      String   // VIEW, CREATE, ENCRYPT, DECRYPT
-  ipAddress   String?
-  userAgent   String?
-  success     Boolean  @default(true)
-  reason      String?  // Purpose of access
-  createdAt   DateTime @default(now())
-
-  masterKey MasterKey @relation(fields: [masterKeyId], references: [id], onDelete: Cascade)
-
-  @@index([masterKeyId])
-  @@index([accessedBy])
-  @@index([createdAt])
-  @@map("master_key_access_logs")
-}
-
-// ============================================
-// TRANSACTIONS
-// ============================================
 
 enum TransactionType {
   DEPOSIT
@@ -368,97 +1090,6 @@ enum TransactionStatus {
   CANCELLED
 }
 
-model Transaction {
-  id                String            @id @default(uuid())
-  userId            String
-  type              TransactionType
-  status            TransactionStatus @default(PENDING)
-  stablecoinType    StablecoinType
-  network           NetworkType?
-  amount            Decimal           @db.Decimal(20, 8)
-  fee               Decimal           @default(0) @db.Decimal(20, 8)
-  txHash            String?           @unique
-  fromAddress       String?
-  toAddress         String?
-  orderId           String?           @unique
-  // Smart contract payment tracking
-  smartContractAddress String?        // Contract address used for payment
-  blockNumber       String?           // Block number where tx was confirmed
-  blockTimestamp    DateTime?         // Block timestamp
-  gasUsed           String?           // Gas/fees used for the transaction
-  confirmations     Int?              @default(0) // Number of confirmations
-  // API-related fields
-  apiKeyId          String?           // If payment came through external API
-  platformFee       Decimal?          @db.Decimal(20, 8) // Platform fee deducted
-  apiCommission     Decimal?          @db.Decimal(20, 8) // Commission for API owner
-  metadata          Json?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  completedAt       DateTime?
-  failureReason     String?
-
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  order  Order? @relation(fields: [orderId], references: [id])
-
-  @@index([userId])
-  @@index([type])
-  @@index([status])
-  @@index([txHash])
-  @@index([network])
-  @@index([apiKeyId])
-  @@index([createdAt])
-  @@map("transactions")
-}
-
-model Deposit {
-  id               String            @id @default(uuid())
-  walletId         String
-  txHash           String            @unique
-  fromAddress      String
-  amount           Decimal           @db.Decimal(20, 8)
-  confirmations    Int               @default(0)
-  requiredConfirms Int               @default(12)
-  status           TransactionStatus @default(PENDING)
-  network          NetworkType
-  blockNumber      BigInt?
-  createdAt        DateTime          @default(now())
-  confirmedAt      DateTime?
-
-  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
-
-  @@index([walletId])
-  @@index([status])
-  @@index([txHash])
-  @@map("deposits")
-}
-
-model Withdrawal {
-  id              String            @id @default(uuid())
-  walletId        String
-  toAddress       String
-  amount          Decimal           @db.Decimal(20, 8)
-  networkFee      Decimal           @db.Decimal(20, 8)
-  txHash          String?           @unique
-  status          TransactionStatus @default(PENDING)
-  network         NetworkType
-  approvedBy      String?
-  approvedAt      DateTime?
-  createdAt       DateTime          @default(now())
-  processedAt     DateTime?
-  completedAt     DateTime?
-  failureReason   String?
-
-  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
-
-  @@index([walletId])
-  @@index([status])
-  @@map("withdrawals")
-}
-
-// ============================================
-// FIAT PURCHASE
-// ============================================
-
 enum FiatPaymentProvider {
   STRIPE
   RAZORPAY
@@ -473,34 +1104,6 @@ enum FiatPaymentStatus {
   REFUNDED
 }
 
-model FiatPurchase {
-  id                String              @id @default(uuid())
-  userId            String
-  provider          FiatPaymentProvider
-  providerTxId      String              @unique
-  stablecoinType    StablecoinType
-  fiatAmount        Decimal             @db.Decimal(20, 2)
-  fiatCurrency      String              @default("USD")
-  stablecoinAmount  Decimal             @db.Decimal(20, 8)
-  exchangeRate      Decimal             @db.Decimal(20, 8)
-  processingFee     Decimal             @db.Decimal(20, 2)
-  status            FiatPaymentStatus   @default(INITIATED)
-  paymentMethod     String?
-  metadata          Json?
-  createdAt         DateTime            @default(now())
-  completedAt       DateTime?
-  failureReason     String?
-
-  @@index([userId])
-  @@index([status])
-  @@index([providerTxId])
-  @@map("fiat_purchases")
-}
-
-// ============================================
-// SELLERS / COMPANIES
-// ============================================
-
 enum SellerType {
   MANUFACTURER
   DISTRIBUTOR
@@ -512,93 +1115,15 @@ enum SellerType {
 }
 
 enum SellerStatus {
-  PENDING_ONBOARDING      // Link sent, merchant hasn't started onboarding
-  DOCUMENTS_PENDING       // Form filled, waiting for document upload
-  UNDER_REVIEW            // Documents uploaded, admin reviewing
-  APPROVED                // Admin approved, waiting for super admin activation
-  ACTIVE                  // Super admin activated, can login and add products
-  REJECTED                // Documents/application rejected
-  SUSPENDED               // Account suspended after activation
-  PENDING_VERIFICATION    // Legacy status for existing sellers
-  VERIFIED                // Legacy status for existing sellers
-}
-
-model Seller {
-  id                  String       @id @default(uuid())
-  userId              String?      @unique // Link to User model (optional for existing sellers)
-  // Basic Info
-  companyName         String
-  tradingName         String?      // DBA (Doing Business As)
-  sellerType          SellerType
-  status              SellerStatus @default(PENDING_VERIFICATION)
-  // Business Registration
-  registrationNumber  String?      // Company registration number
-  taxId               String?      // VAT/GST/Tax ID
-  businessLicense     String?      // License URL
-  // Contact Info
-  email               String       @unique
-  phone               String?
-  website             String?
-  // Address
-  addressLine1        String?
-  addressLine2        String?
-  city                String?
-  state               String?
-  postalCode          String?
-  country             String
-  // Branding
-  logo                String?      // Logo URL
-  banner              String?      // Banner image URL
-  description         String?      @db.Text
-  // Ratings & Trust
-  rating              Decimal      @default(0) @db.Decimal(3, 2) // 0.00 to 5.00
-  totalReviews        Int          @default(0)
-  totalSales          Int          @default(0)
-  // Verification & Onboarding
-  verifiedAt          DateTime?
-  verifiedBy          String?      // Admin who verified
-  rejectionReason     String?      @db.Text
-  onboardingToken     String?      @unique // Unique token for onboarding link
-  onboardingTokenExpiry DateTime?  // Token expiration
-  onboardingCompletedAt DateTime?  // When merchant completed onboarding form
-  documentsSubmittedAt  DateTime?  // When all documents uploaded
-  approvedAt          DateTime?    // When admin approved documents
-  approvedBy          String?      // Admin who approved documents
-  activatedAt         DateTime?    // When super admin activated account
-  activatedBy         String?      // Super admin who activated
-  isInhouse           Boolean      @default(false) // True if products added by admin/superadmin
-  // Banking (for payouts)
-  bankAccountName     String?
-  bankAccountNumber   String?      // Encrypted
-  bankName            String?
-  bankRoutingNumber   String?      // Encrypted
-  bankSwiftCode       String?
-  // Wallet for crypto payouts
-  payoutWalletAddress String?
-  payoutNetwork       NetworkType?
-  // Settings
-  commissionRate      Decimal      @default(0.10) @db.Decimal(5, 4) // Platform takes 10% by default
-  minOrderValue       Decimal?     @db.Decimal(20, 8)
-  maxOrderValue       Decimal?     @db.Decimal(20, 8)
-  // Metadata
-  metadata            Json?
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
-
-  // Relations
-  user                User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
-  products            Product[]
-  sellerDocuments     SellerDocument[]
-  sellerPayouts       SellerPayout[]
-
-  @@index([userId])
-  @@index([status])
-  @@index([sellerType])
-  @@index([country])
-  @@index([companyName])
-  @@index([onboardingToken])
-  @@index([email])
-  @@map("sellers")
+  PENDING_VERIFICATION
+  VERIFIED
+  SUSPENDED
+  REJECTED
+  DOCUMENTS_PENDING
+  UNDER_REVIEW
+  APPROVED
+  ACTIVE
+  PENDING_ONBOARDING
 }
 
 enum DocumentStatus {
@@ -606,34 +1131,6 @@ enum DocumentStatus {
   APPROVED
   REJECTED
 }
-
-model SellerDocument {
-  id            String         @id @default(uuid())
-  sellerId      String
-  documentType  String         // gst_certificate, pan_card, cin_certificate, msme_certificate, bank_statement, business_license, identity_proof
-  fileName      String         // Original file name
-  documentUrl   String         // S3/storage URL
-  fileSize      Int?           // File size in bytes
-  mimeType      String?        // image/jpeg, application/pdf, etc.
-  status        DocumentStatus @default(PENDING)
-  reviewedAt    DateTime?
-  reviewedBy    String?        // Admin user ID who reviewed
-  rejectionNote String?        @db.Text // Reason for rejection
-  uploadedAt    DateTime       @default(now())
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-
-  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-
-  @@index([sellerId])
-  @@index([documentType])
-  @@index([status])
-  @@map("seller_documents")
-}
-
-// ============================================
-// PRODUCTS & ORDERS
-// ============================================
 
 enum ProductStatus {
   ACTIVE
@@ -643,214 +1140,17 @@ enum ProductStatus {
   REJECTED
 }
 
-model Product {
-  id          String        @id @default(uuid())
-  sellerId    String        // Link to seller
-  // Basic Info
-  name        String
-  description String?       @db.Text
-  shortDescription String?  // For ads/cards
-  sku         String?       // Stock Keeping Unit
-  barcode     String?       // UPC/EAN
-  // Media
-  imageUrl    String?
-  images      Json?         // Array of image URLs
-  videoUrl    String?
-  // Categorization
-  category    String?
-  subcategory String?
-  brand       String?
-  tags        Json?         // Array of tags for better search
-  // Inventory
-  status      ProductStatus @default(PENDING_REVIEW)
-  stock       Int           @default(0)
-  lowStockThreshold Int     @default(10)
-  // Shipping
-  weight      Decimal?      @db.Decimal(10, 2) // in kg
-  dimensions  Json?         // { length, width, height }
-  shippingClass String?     // standard, express, fragile
-  // Flags
-  isFeatured  Boolean       @default(false)
-  isDigital   Boolean       @default(false)
-  // Specifications
-  specifications Json?      // Key-value pairs
-  // SEO
-  slug        String?       @unique
-  metaTitle   String?
-  metaDescription String?
-  // Ratings
-  rating      Decimal       @default(0) @db.Decimal(3, 2)
-  totalReviews Int          @default(0)
-  // Metadata
-  metadata    Json?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  // Relations
-  seller         Seller          @relation(fields: [sellerId], references: [id])
-  prices         ProductPrice[]
-  orderItems     OrderItem[]
-  adClicks       AdClick[]
-  externalOrders ExternalOrder[]
-  reviews        ProductReview[]
-  favorites      Favorite[]
-
-  @@index([sellerId])
-  @@index([status])
-  @@index([category])
-  @@index([brand])
-  @@index([slug])
-  @@map("products")
-}
-
-model DeletedProduct {
-  id          String        @id @default(uuid())
-  productId   String        @unique // Original product ID
-  sellerId    String
-  name        String
-  description String?       @db.Text
-  imageUrl    String?
-  images      Json?
-  category    String?
-  brand       String?
-  prices      Json?         // Store prices as JSON
-  deletedBy   String        // User who deleted it
-  deletedAt   DateTime      @default(now())
-  reason      String?       // Optional deletion reason
-  metadata    Json?         // Store all other product data
-
-  @@index([sellerId])
-  @@index([deletedAt])
-  @@index([deletedBy])
-  @@map("deleted_products")
-}
-
-model Favorite {
-  id        String   @id @default(uuid())
-  userId    String
-  productId String
-  createdAt DateTime @default(now())
-
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, productId])
-  @@index([userId])
-  @@index([productId])
-  @@map("favorites")
-}
-
-model ProductReview {
-  id          String   @id @default(uuid())
-  productId   String
-  customerId  String?  // External customer ID
-  userId      String?  // Internal user ID
-  rating      Int      // 1-5
-  title       String?
-  comment     String?  @db.Text
-  isVerified  Boolean  @default(false) // Verified purchase
-  isApproved  Boolean  @default(false)
-  helpfulCount Int     @default(0)
-  images      Json?    // Review images
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@index([productId])
-  @@index([rating])
-  @@index([isApproved])
-  @@map("product_reviews")
-}
-
-model ProductPrice {
-  id             String         @id @default(uuid())
-  productId      String
-  stablecoinType StablecoinType
-  price          Decimal        @db.Decimal(20, 8)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@unique([productId, stablecoinType])
-  @@index([productId])
-  @@map("product_prices")
-}
-
 enum OrderStatus {
   PENDING
   PAYMENT_PENDING
-  PAID
   PROCESSING
   CONFIRMED
   SHIPPED
   DELIVERED
   CANCELLED
   REFUNDED
+  PAID
 }
-
-model Order {
-  id                  String         @id @default(uuid())
-  userId              String
-  orderNumber         String         @unique
-  stablecoinType      StablecoinType
-  network             NetworkType?
-  subtotal            Decimal        @default(0) @db.Decimal(20, 8)
-  tax                 Decimal        @default(0) @db.Decimal(20, 8)
-  total               Decimal        @default(0) @db.Decimal(20, 8)
-  totalAmount         Decimal        @default(0) @db.Decimal(20, 8)
-  platformFee         Decimal        @default(0) @db.Decimal(20, 8)
-  status              OrderStatus    @default(PENDING)
-  shippingAddressId   String?
-  shippingAddress     Json?
-  trackingNumber      String?
-  transactionHash     String?        @unique
-  blockNumber         String?
-  buyerAddress        String?
-  paymentConfirmedAt  DateTime?
-  metadata            Json?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-  paidAt              DateTime?
-  shippedAt           DateTime?
-  deliveredAt         DateTime?
-  cancelledAt         DateTime?
-
-  user         User          @relation(fields: [userId], references: [id])
-  items        OrderItem[]
-  transactions Transaction[]
-  shippingAddr UserAddress?  @relation(fields: [shippingAddressId], references: [id])
-
-  @@index([userId])
-  @@index([status])
-  @@index([orderNumber])
-  @@index([createdAt])
-  @@index([transactionHash])
-  @@map("orders")
-}
-
-model OrderItem {
-  id             String         @id @default(uuid())
-  orderId        String
-  productId      String
-  quantity       Int
-  stablecoinType StablecoinType
-  pricePerUnit   Decimal        @db.Decimal(20, 8)
-  totalPrice     Decimal        @db.Decimal(20, 8)
-  metadata       Json?
-
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
-
-  @@index([orderId])
-  @@index([productId])
-  @@map("order_items")
-}
-
-// ============================================
-// NOTIFICATIONS
-// ============================================
 
 enum NotificationType {
   OTP
@@ -870,29 +1170,6 @@ enum NotificationChannel {
   IN_APP
 }
 
-model Notification {
-  id        String              @id @default(uuid())
-  userId    String?
-  type      NotificationType
-  channel   NotificationChannel
-  recipient String
-  subject   String?
-  message   String              @db.Text
-  metadata  Json?
-  sentAt    DateTime?
-  status    String              @default("pending")
-  createdAt DateTime            @default(now())
-
-  @@index([userId])
-  @@index([status])
-  @@index([createdAt])
-  @@map("notifications")
-}
-
-// ============================================
-// AUDIT & LOGGING
-// ============================================
-
 enum AuditAction {
   USER_LOGIN
   USER_LOGOUT
@@ -902,189 +1179,24 @@ enum AuditAction {
   DEPOSIT_RECEIVED
   WITHDRAWAL_REQUESTED
   WITHDRAWAL_APPROVED
-  WITHDRAWAL_COMPLETED
-  WITHDRAWAL_FAILED
   ORDER_PLACED
   ORDER_CANCELLED
   FIAT_PURCHASE
   ADMIN_ACTION
   SETTINGS_CHANGED
   KYC_UPDATED
+  WITHDRAWAL_COMPLETED
+  WITHDRAWAL_FAILED
   ADDRESS_ADDED
   ADDRESS_UPDATED
   ADDRESS_DELETED
 }
-
-model AuditLog {
-  id          String      @id @default(uuid())
-  userId      String?
-  action      AuditAction
-  entityType  String?
-  entityId    String?
-  ipAddress   String?
-  userAgent   String?
-  metadata    Json?
-  createdAt   DateTime    @default(now())
-
-  user User? @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([action])
-  @@index([createdAt])
-  @@map("audit_logs")
-}
-
-// ============================================
-// SYSTEM CONFIGURATION
-// ============================================
-
-model SystemConfig {
-  id        String   @id @default(uuid())
-  key       String   @unique
-  value     Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("system_config")
-}
-
-// ============================================
-// EXCHANGE RATES CACHE
-// ============================================
-
-model ExchangeRate {
-  id             String         @id @default(uuid())
-  stablecoinType StablecoinType
-  fiatCurrency   String
-  rate           Decimal        @db.Decimal(20, 8)
-  provider       String
-  validUntil     DateTime
-  createdAt      DateTime       @default(now())
-
-  @@unique([stablecoinType, fiatCurrency])
-  @@index([validUntil])
-  @@map("exchange_rates")
-}
-
-// ============================================
-// API KEYS
-// ============================================
 
 enum ApiKeyStatus {
   ACTIVE
   REVOKED
   EXPIRED
 }
-
-model ApiKey {
-  id          String       @id @default(uuid())
-  userId      String
-  name        String       // User-friendly name for the API key
-  keyHash     String       @unique // Hashed API key (never store plain text)
-  secretHash  String?      // Hashed API secret for HMAC signature verification
-  prefix      String       // First 8 characters of the key for identification
-  status      ApiKeyStatus @default(ACTIVE)
-  lastUsedAt  DateTime?
-  expiresAt   DateTime?
-  // Network support (which blockchain networks this API key supports for payments)
-  supportedNetworks  NetworkType[] // e.g., [ETHEREUM, SUI, TON, SOLANA]
-  // Rate limiting
-  rateLimitPerMinute Int   @default(60)
-  rateLimitPerDay    Int   @default(10000)
-  // Billing
-  subscriptionTier   String @default("free") // free, basic, pro, enterprise
-  monthlyQuota       Int    @default(1000)
-  usageThisMonth     Int    @default(0)
-  billingResetAt     DateTime?
-  // Commission settings (5% default for API users)
-  commissionRate     Decimal @default(0.05) @db.Decimal(5, 4) // 5% commission
-  totalEarnings      Decimal @default(0) @db.Decimal(20, 8)
-  pendingEarnings    Decimal @default(0) @db.Decimal(20, 8)
-  availableEarnings  Decimal @default(0) @db.Decimal(20, 8)
-  payoutWalletAddress String?
-  payoutNetwork      NetworkType?
-  // Webhook configuration
-  webhookUrl         String?
-  webhookSecret      String?
-  // Payment creation fee tracking ($5 per API key)
-  creationFeePaid    Boolean  @default(false)
-  creationFeeAmount  Decimal? @db.Decimal(20, 8)
-  creationFeeTxHash  String?
-  metadata    Json?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  revokedAt   DateTime?
-
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  usageLogs   ApiUsageLog[]
-  adClicks    AdClick[]
-  externalOrders ExternalOrder[]
-  commissions Commission[]
-  payouts     CommissionPayout[]
-
-  @@index([userId])
-  @@index([keyHash])
-  @@index([status])
-  @@index([prefix])
-  @@map("api_keys")
-}
-
-// ============================================
-// API USAGE TRACKING
-// ============================================
-
-model ApiUsageLog {
-  id          String   @id @default(uuid())
-  apiKeyId    String
-  endpoint    String
-  method      String
-  statusCode  Int
-  responseTimeMs Int
-  ipAddress   String?
-  userAgent   String?
-  requestBody Json?
-  createdAt   DateTime @default(now())
-
-  apiKey ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
-
-  @@index([apiKeyId])
-  @@index([createdAt])
-  @@index([endpoint])
-  @@map("api_usage_logs")
-}
-
-// ============================================
-// ADS & RECOMMENDATIONS
-// ============================================
-
-model AdClick {
-  id            String   @id @default(uuid())
-  apiKeyId      String
-  productId     String
-  clickToken    String   @unique // Unique tracking token
-  customerSessionId String?
-  customerPreferences Json?
-  clickedAt     DateTime?
-  convertedAt   DateTime? // When purchase was made
-  orderId       String?   @unique
-  metadata      Json?
-  createdAt     DateTime @default(now())
-  expiresAt     DateTime // Click token expires after X hours
-
-  apiKey  ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
-  product Product  @relation(fields: [productId], references: [id])
-  order   ExternalOrder? @relation(fields: [orderId], references: [id])
-
-  @@index([apiKeyId])
-  @@index([productId])
-  @@index([clickToken])
-  @@index([createdAt])
-  @@map("ad_clicks")
-}
-
-// ============================================
-// EXTERNAL CUSTOMERS (for 402 Payment Protocol)
-// ============================================
 
 enum CustomerVerificationStatus {
   PENDING
@@ -1093,105 +1205,12 @@ enum CustomerVerificationStatus {
   FULLY_VERIFIED
 }
 
-model ExternalCustomer {
-  id              String   @id @default(uuid())
-  phone           String?  @unique
-  countryCode     String?
-  email           String?  @unique
-  emailVerified   Boolean  @default(false)
-  phoneVerified   Boolean  @default(false)
-  verificationStatus CustomerVerificationStatus @default(PENDING)
-  lastVerifiedAt  DateTime?
-  // Address info
-  fullName        String?
-  addressLine1    String?
-  addressLine2    String?
-  city            String?
-  state           String?
-  postalCode      String?
-  country         String?
-  landmark        String?
-  // Risk & behavior
-  riskScore       Int      @default(0)
-  isSuspicious    Boolean  @default(false)
-  lastActivityAt  DateTime?
-  metadata        Json?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  depositAddresses ExternalDepositAddress[]
-  orders           ExternalOrder[]
-  otpVerifications ExternalOtpVerification[]
-
-  @@index([phone])
-  @@index([email])
-  @@index([verificationStatus])
-  @@map("external_customers")
-}
-
-model ExternalOtpVerification {
-  id          String   @id @default(uuid())
-  customerId  String
-  type        String   // email or phone
-  recipient   String   // email address or phone number
-  otp         String
-  attempts    Int      @default(0)
-  maxAttempts Int      @default(5)
-  verified    Boolean  @default(false)
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
-
-  customer ExternalCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-
-  @@index([customerId])
-  @@index([recipient])
-  @@index([expiresAt])
-  @@map("external_otp_verifications")
-}
-
-// ============================================
-// EXTERNAL DEPOSIT ADDRESSES
-// ============================================
-
 enum DepositAddressStatus {
   ACTIVE
   EXPIRED
   USED
   SUSPENDED
 }
-
-model ExternalDepositAddress {
-  id              String   @id @default(uuid())
-  customerId      String
-  network         NetworkType
-  stablecoinType  StablecoinType
-  address         String
-  status          DepositAddressStatus @default(ACTIVE)
-  // Address lifecycle
-  assignedAt      DateTime @default(now())
-  lastUsedAt      DateTime?
-  expiresAt       DateTime? // Address expires after X hours of inactivity
-  // Balance tracking
-  pendingBalance  Decimal  @default(0) @db.Decimal(20, 8)
-  totalReceived   Decimal  @default(0) @db.Decimal(20, 8)
-  metadata        Json?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  customer ExternalCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  orders   ExternalOrder[]
-
-  @@unique([customerId, network, stablecoinType])
-  @@index([customerId])
-  @@index([address])
-  @@index([status])
-  @@index([expiresAt])
-  @@map("external_deposit_addresses")
-}
-
-// ============================================
-// EXTERNAL ORDERS (402 Protocol)
-// ============================================
 
 enum ExternalOrderStatus {
   INITIATED
@@ -1207,66 +1226,6 @@ enum ExternalOrderStatus {
   REFUNDED
   EXPIRED
 }
-
-model ExternalOrder {
-  id                String   @id @default(uuid())
-  apiKeyId          String
-  customerId        String
-  depositAddressId  String?
-  orderNumber       String   @unique
-  // Product info
-  productId         String
-  quantity          Int      @default(1)
-  // Pricing
-  stablecoinType    StablecoinType
-  network           NetworkType?
-  pricePerUnit      Decimal  @db.Decimal(20, 8)
-  subtotal          Decimal  @db.Decimal(20, 8)
-  tax               Decimal  @default(0) @db.Decimal(20, 8)
-  total             Decimal  @db.Decimal(20, 8)
-  // Status
-  status            ExternalOrderStatus @default(INITIATED)
-  // Payment tracking
-  depositAddress    String?
-  expectedAmount    Decimal? @db.Decimal(20, 8)
-  receivedAmount    Decimal? @db.Decimal(20, 8)
-  txHash            String?  @unique
-  paymentExpiresAt  DateTime?
-  paidAt            DateTime?
-  // Shipping
-  shippingAddress   Json?
-  trackingNumber    String?
-  shippedAt         DateTime?
-  deliveredAt       DateTime?
-  // Metadata
-  idempotencyKey    String?  @unique // Prevent duplicate orders
-  metadata          Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  cancelledAt       DateTime?
-  expiresAt         DateTime? // Order expires if not paid
-
-  apiKey          ApiKey                  @relation(fields: [apiKeyId], references: [id])
-  customer        ExternalCustomer        @relation(fields: [customerId], references: [id])
-  depositAddrRef  ExternalDepositAddress? @relation(fields: [depositAddressId], references: [id])
-  product         Product                 @relation(fields: [productId], references: [id])
-  adClick         AdClick?
-  webhookLogs     WebhookLog[]
-  commission      Commission?
-
-  @@index([apiKeyId])
-  @@index([customerId])
-  @@index([status])
-  @@index([orderNumber])
-  @@index([txHash])
-  @@index([idempotencyKey])
-  @@index([createdAt])
-  @@map("external_orders")
-}
-
-// ============================================
-// DEVELOPER WEBHOOKS
-// ============================================
 
 enum WebhookEventType {
   PAYMENT_INITIATED
@@ -1289,77 +1248,12 @@ enum WebhookStatus {
   RETRYING
 }
 
-model WebhookLog {
-  id            String   @id @default(uuid())
-  orderId       String
-  eventType     WebhookEventType
-  webhookUrl    String
-  payload       Json
-  status        WebhookStatus @default(PENDING)
-  statusCode    Int?
-  response      String?  @db.Text
-  attempts      Int      @default(0)
-  maxAttempts   Int      @default(5)
-  lastAttemptAt DateTime?
-  nextRetryAt   DateTime?
-  deliveredAt   DateTime?
-  createdAt     DateTime @default(now())
-
-  order ExternalOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  @@index([orderId])
-  @@index([status])
-  @@index([eventType])
-  @@index([nextRetryAt])
-  @@map("webhook_logs")
-}
-
-// ============================================
-// API USER COMMISSIONS (5% for referrals)
-// ============================================
-
 enum CommissionStatus {
-  PENDING       // Order placed but not confirmed
-  CONFIRMED     // Payment confirmed, commission locked
-  AVAILABLE     // Commission available for payout
-  PAID          // Commission paid out
-  CANCELLED     // Order cancelled/refunded
-}
-
-model Commission {
-  id              String           @id @default(uuid())
-  apiKeyId        String
-  externalOrderId String           @unique
-  // Commission details
-  orderTotal      Decimal          @db.Decimal(20, 8)
-  commissionRate  Decimal          @default(0.05) @db.Decimal(5, 4) // 5% default
-  commissionAmount Decimal         @db.Decimal(20, 8)
-  stablecoinType  StablecoinType
-  network         NetworkType?
-  // Status
-  status          CommissionStatus @default(PENDING)
-  // Timeline
-  confirmedAt     DateTime?
-  availableAt     DateTime?        // When commission becomes available (e.g., after return window)
-  paidAt          DateTime?
-  cancelledAt     DateTime?
-  cancellationReason String?
-  // Payout reference
-  payoutId        String?
-  // Metadata
-  metadata        Json?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-
-  apiKey        ApiKey           @relation(fields: [apiKeyId], references: [id])
-  externalOrder ExternalOrder    @relation(fields: [externalOrderId], references: [id])
-  payout        CommissionPayout? @relation(fields: [payoutId], references: [id])
-
-  @@index([apiKeyId])
-  @@index([status])
-  @@index([createdAt])
-  @@index([payoutId])
-  @@map("commissions")
+  PENDING
+  CONFIRMED
+  AVAILABLE
+  PAID
+  CANCELLED
 }
 
 enum PayoutStatus {
@@ -1369,42 +1263,6 @@ enum PayoutStatus {
   FAILED
 }
 
-model CommissionPayout {
-  id              String       @id @default(uuid())
-  apiKeyId        String
-  // Payout details
-  totalAmount     Decimal      @db.Decimal(20, 8)
-  stablecoinType  StablecoinType
-  network         NetworkType
-  // Destination
-  walletAddress   String
-  // Transaction
-  txHash          String?      @unique
-  status          PayoutStatus @default(PENDING)
-  // Timeline
-  requestedAt     DateTime     @default(now())
-  processedAt     DateTime?
-  completedAt     DateTime?
-  failedAt        DateTime?
-  failureReason   String?
-  // Metadata
-  metadata        Json?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-
-  apiKey      ApiKey       @relation(fields: [apiKeyId], references: [id])
-  commissions Commission[]
-
-  @@index([apiKeyId])
-  @@index([status])
-  @@index([createdAt])
-  @@map("commission_payouts")
-}
-
-// ============================================
-// SELLER PAYOUTS
-// ============================================
-
 enum SellerPayoutStatus {
   PENDING
   PROCESSING
@@ -1413,94 +1271,61 @@ enum SellerPayoutStatus {
   ON_HOLD
 }
 
-model SellerPayout {
-  id              String             @id @default(uuid())
-  sellerId        String
-  // Payout details
-  grossAmount     Decimal            @db.Decimal(20, 8) // Total sales
-  platformFee     Decimal            @db.Decimal(20, 8) // Platform commission
-  netAmount       Decimal            @db.Decimal(20, 8) // Amount to seller
-  stablecoinType  StablecoinType
-  network         NetworkType?
-  // Destination
-  payoutMethod    String             // crypto, bank_transfer
-  walletAddress   String?
-  bankReference   String?
-  // Transaction
-  txHash          String?            @unique
-  status          SellerPayoutStatus @default(PENDING)
-  // Period
-  periodStart     DateTime
-  periodEnd       DateTime
-  // Timeline
-  requestedAt     DateTime?
-  processedAt     DateTime?
-  completedAt     DateTime?
-  failedAt        DateTime?
-  failureReason   String?
-  // Approval
-  approvedBy      String?
-  approvedAt      DateTime?
-  // Metadata
-  orderIds        Json?              // List of order IDs included
-  metadata        Json?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-
-  seller Seller @relation(fields: [sellerId], references: [id])
-
-  @@index([sellerId])
-  @@index([status])
-  @@index([createdAt])
-  @@map("seller_payouts")
-}
-
-// ============================================
-// REWARDS SYSTEM
-// ============================================
-
 enum RewardType {
-  PURCHASE         // Reward for making a purchase
-  REFERRAL         // Reward for referring a new user
-  SUBSCRIPTION     // Reward for subscription
-  FIRST_PURCHASE   // Bonus for first purchase
-  MILESTONE        // Achievement milestone
-  BONUS            // Special bonus
-}
-
-enum RewardStatus {
-  PENDING
-  EARNED
-  CLAIMED
-  EXPIRED
+  REFERRAL_BONUS
+  REFERRAL
+  FIRST_PURCHASE
+  PURCHASE_REWARD
+  PURCHASE
+  SIGNUP_BONUS
+  MILESTONE
+  SPECIAL_OFFER
+  SUBSCRIPTION
 }
 
 model Reward {
-  id          String       @id @default(uuid())
-  userId      String
-  type        RewardType
-  status      RewardStatus @default(EARNED)
-  // Reward details
-  points      Int          @default(0)    // Reward points
-  amount      Decimal?     @db.Decimal(20, 8) // Cash reward amount
-  currency    StablecoinType?
-  description String
-  // Expiry
-  expiresAt   DateTime?
-  claimedAt   DateTime?
-  // Reference
-  referenceType String?    // order, referral, subscription
-  referenceId   String?    // ID of the related entity
-  // Metadata
-  metadata    Json?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String         @id @default(uuid())
+  userId        String
+  type          RewardType
+  amount        Decimal?       @db.Decimal(20, 8)
+  currency      StablecoinType?
+  points        Int            @default(0)
+  status        String         @default("EARNED")
+  description   String?
+  referenceType String?
+  referenceId   String?
+  metadata      Json?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  claimedAt     DateTime?
+  expiresAt     DateTime?
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
   @@index([type])
   @@index([createdAt])
   @@map("rewards")
+}
+
+model NetworkConfig {
+  id                 String      @id @default(uuid())
+  network            NetworkType @unique
+  isEnabled          Boolean     @default(true)
+  displayName        String
+  description        String?
+  iconUrl            String?
+  sortOrder          Int         @default(0)
+  contractDeployed   Boolean     @default(false)
+  contractAddress    String?
+  lastContractCheck  DateTime?
+  metadata           Json?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  updatedBy          String?
+
+  @@index([isEnabled])
+  @@index([sortOrder])
+  @@index([contractDeployed])
+  @@map("network_configs")
 }

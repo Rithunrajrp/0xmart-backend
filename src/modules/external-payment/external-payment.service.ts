@@ -21,6 +21,7 @@ import { SellersService } from '../sellers/sellers.service';
 import { EmailService } from '../auth/services/email.service';
 import { AddressGeneratorService } from '../wallets/services/address-generator.service';
 import { BlockchainService } from '../wallets/services/blockchain.service';
+import { NetworksService } from '../networks/networks.service';
 import { ethers } from 'ethers';
 
 // Constants
@@ -79,6 +80,7 @@ export class ExternalPaymentService {
     private emailService: EmailService,
     private addressGeneratorService: AddressGeneratorService,
     private blockchainService: BlockchainService,
+    private networksService: NetworksService,
   ) {}
 
   /**
@@ -313,8 +315,12 @@ export class ExternalPaymentService {
     // No OTP needed for external purchases
     // OTP is only required when user wants to access their 0xMart account funds
 
-    // Get network suggestions
-    const suggestedNetworks = this.networkRecommendations.default;
+    // Get network suggestions - filter to only enabled networks
+    const enabledNetworks = await this.networksService.getEnabledNetworks();
+    const enabledNetworkTypes = enabledNetworks.map(n => n.network);
+    const suggestedNetworks = this.networkRecommendations.default.filter(
+      network => enabledNetworkTypes.includes(network)
+    );
 
     // Track conversion if ad click token provided
     if (data.adClickToken) {

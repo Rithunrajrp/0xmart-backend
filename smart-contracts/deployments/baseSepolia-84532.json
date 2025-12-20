@@ -1,0 +1,9 @@
+{
+  "network": "baseSepolia",
+  "chainId": "84532",
+  "contractAddress": "0xfFfD214731036E826A283d1600c967771fDdABAe",
+  "hotWalletAddress": "0x0b8338c719E6b9627E27b9D984d72b5278b17F10",
+  "deployer": "0x0b8338c719E6b9627E27b9D984d72b5278b17F10",
+  "deploymentTime": "2025-12-19T16:10:19.943Z",
+  "blockNumber": 35196164
+}

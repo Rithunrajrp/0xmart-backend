@@ -37,7 +37,7 @@ module oxmart::payment {
     const MAX_PLATFORM_FEE_BPS: u64 = 1000;
 
     /// Payment Contract Configuration
-    struct PaymentConfig has key {
+    public struct PaymentConfig has key {
         id: UID,
         /// Admin address
         admin: address,
@@ -54,7 +54,7 @@ module oxmart::payment {
     }
 
     /// Event emitted when payment is received
-    struct PaymentReceived has copy, drop {
+    public struct PaymentReceived has copy, drop {
         order_id: vector<u8>,
         buyer: address,
         token_type: String,
@@ -67,19 +67,19 @@ module oxmart::payment {
     }
 
     /// Event emitted when hot wallet is updated
-    struct HotWalletUpdated has copy, drop {
+    public struct HotWalletUpdated has copy, drop {
         old_wallet: address,
         new_wallet: address,
     }
 
     /// Event emitted when token support is changed
-    struct TokenSupportChanged has copy, drop {
+    public struct TokenSupportChanged has copy, drop {
         token_type: String,
         is_supported: bool,
     }
 
     /// Event emitted when platform fee is updated
-    struct PlatformFeeUpdated has copy, drop {
+    public struct PlatformFeeUpdated has copy, drop {
         old_fee_bps: u64,
         new_fee_bps: u64,
     }
@@ -307,7 +307,7 @@ module oxmart::payment {
 
     /// Helper function to convert type to string
     fun type_to_string<T>(): String {
-        let type_name = std::type_name::get<T>();
+        let type_name = std::type_name::with_defining_ids<T>();
         let ascii_string = std::type_name::into_string(type_name);
         string::from_ascii(ascii_string)
     }

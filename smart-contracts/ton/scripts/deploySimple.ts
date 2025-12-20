@@ -38,9 +38,20 @@ async function deploy() {
   console.log(`Hot Wallet: ${hotWalletAddress.toString()}`);
   console.log('');
 
+  // Get RPC URL and API key from environment
+  const rpcUrl = process.env.TON_TESTNET_RPC_URL || 'https://testnet.toncenter.com/api/v2/jsonRPC';
+  const apiKey = process.env.TON_TESTNET_API_KEY;
+
+  console.log(`🌐 Using RPC: ${rpcUrl.substring(0, 50)}...`);
+
+  if (!apiKey && rpcUrl.includes('toncenter.com')) {
+    console.warn('⚠️  Warning: TON_TESTNET_API_KEY not set - using public endpoint (may hit rate limits)');
+  }
+
   // Initialize TON client (testnet)
   const client = new TonClient({
-    endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC',
+    endpoint: rpcUrl,
+    apiKey: apiKey || undefined,
   });
 
   // Prepare deployer wallet

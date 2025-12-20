@@ -9,6 +9,7 @@ import { SellersModule } from '../sellers/sellers.module';
 import { AuthModule } from '../auth/auth.module';
 import { WalletsModule } from '../wallets/wallets.module';
 import { SmartContractModule } from '../smart-contract/smart-contract.module';
+import { NetworksModule } from '../networks/networks.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { SmartContractModule } from '../smart-contract/smart-contract.module';
     AuthModule,
     WalletsModule,
     SmartContractModule,
+    NetworksModule,
   ],
   controllers: [ExternalPaymentController],
   providers: [ExternalPaymentService],

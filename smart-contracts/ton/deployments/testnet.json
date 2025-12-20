@@ -1,0 +1,9 @@
+{
+  "network": "testnet",
+  "contractAddress": "kQC4Gn_21IQVPj3ey44TKG3PA1ciL-XjeMmYbcO7jnAmKard",
+  "contractAddressMainnet": "EQC4Gn_21IQVPj3ey44TKG3PA1ciL-XjeMmYbcO7jnAmKRFX",
+  "hotWalletAddress": "kQAtHOPYIhRP1f_iXXmoLrpQapUsbVSMET7hQJpW0Dx4CEvL",
+  "deployer": "EQAtHOPYIhRP1f_iXXmoLrpQapUsbVSMET7hQJpW0Dx4CPBB",
+  "deploymentTime": "2025-12-18T16:08:47.802Z",
+  "explorer": "https://testnet.tonviewer.com/EQC4Gn_21IQVPj3ey44TKG3PA1ciL-XjeMmYbcO7jnAmKRFX"
+}

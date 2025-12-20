@@ -30,6 +30,7 @@ import { MerchantOnboardingModule } from './modules/merchant-onboarding/merchant
 import { AddressesModule } from './modules/addresses/addresses.module';
 import { UserManagementModule } from './modules/user-management/user-management.module';
 import { RewardsModule } from './modules/rewards/rewards.module';
+import { NetworksModule } from './modules/networks/networks.module';
 
 @Module({
   imports: [
@@ -73,6 +74,8 @@ import { RewardsModule } from './modules/rewards/rewards.module';
     // User management and rewards
     UserManagementModule,
     RewardsModule,
+    // Network configuration management
+    NetworksModule,
   ],
   providers: [
     {

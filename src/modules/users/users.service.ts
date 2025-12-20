@@ -223,7 +223,7 @@ export class UsersService {
           },
         },
         rewards: {
-          where: { type: 'REFERRAL' },
+          where: { type: 'REFERRAL' as any },
           select: {
             amount: true,
             status: true,
