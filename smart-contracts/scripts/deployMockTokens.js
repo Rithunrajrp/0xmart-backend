@@ -19,26 +19,29 @@ async function main() {
   // Deploy tokens
   const MockERC20 = await ethers.getContractFactory("MockERC20");
 
+  // Gas overrides for reliable deployment
+  const overrides = { gasLimit: 3000000, gasPrice: 10000000000n };
+
   console.log("Deploying USDT (6 decimals)...");
-  const usdt = await MockERC20.deploy("Tether USD", "USDT", 6);
+  const usdt = await MockERC20.deploy("Tether USD", "USDT", 6, overrides);
   await usdt.waitForDeployment();
   const usdtAddress = await usdt.getAddress();
   console.log("✅ USDT deployed to:", usdtAddress);
 
   console.log("\nDeploying USDC (6 decimals)...");
-  const usdc = await MockERC20.deploy("USD Coin", "USDC", 6);
+  const usdc = await MockERC20.deploy("USD Coin", "USDC", 6, overrides);
   await usdc.waitForDeployment();
   const usdcAddress = await usdc.getAddress();
   console.log("✅ USDC deployed to:", usdcAddress);
 
   console.log("\nDeploying DAI (18 decimals)...");
-  const dai = await MockERC20.deploy("Dai Stablecoin", "DAI", 18);
+  const dai = await MockERC20.deploy("Dai Stablecoin", "DAI", 18, overrides);
   await dai.waitForDeployment();
   const daiAddress = await dai.getAddress();
   console.log("✅ DAI deployed to:", daiAddress);
 
   console.log("\nDeploying BUSD (18 decimals)...");
-  const busd = await MockERC20.deploy("Binance USD", "BUSD", 18);
+  const busd = await MockERC20.deploy("Binance USD", "BUSD", 18, overrides);
   await busd.waitForDeployment();
   const busdAddress = await busd.getAddress();
   console.log("✅ BUSD deployed to:", busdAddress);

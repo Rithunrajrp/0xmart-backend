@@ -70,10 +70,10 @@ const TOKEN_ADDRESSES = {
   },
   // BSC Testnet
   "97": {
-    USDT: "0x",
-    USDC: "0x",
-    DAI: "0x",
-    BUSD: "0x",
+    USDT: "0x78B3EeCea6a1f17a5552566619F3570C58C87930",
+    USDC: "0x33B88bB907eE71cBA2c95666bb5b807b49a14d80",
+    DAI: "0x467C1A0F1B3330681d69eA154904ee70bbeA9e13",
+    BUSD: "0x902d76b5083a2368Fe6c758C5E00F3325E55A22A",
   },
 };
 
@@ -132,7 +132,8 @@ async function main() {
 
       // Add token
       console.log(`Adding ${symbol}:`, address);
-      const tx = await contract.addSupportedToken(address);
+      const overrides = { gasLimit: 200000, gasPrice: 10000000000n };
+      const tx = await contract.addSupportedToken(address, overrides);
       console.log("Transaction hash:", tx.hash);
       await tx.wait();
       console.log(`✅ ${symbol} added successfully\n`);

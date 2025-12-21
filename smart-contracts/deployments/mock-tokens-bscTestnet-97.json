@@ -1,0 +1,32 @@
+{
+  "network": "bscTestnet",
+  "chainId": "97",
+  "deployer": "0x0b8338c719E6b9627E27b9D984d72b5278b17F10",
+  "deploymentTime": "2025-12-21T10:28:00.906Z",
+  "tokens": {
+    "USDT": {
+      "address": "0x78B3EeCea6a1f17a5552566619F3570C58C87930",
+      "decimals": 6,
+      "symbol": "USDT",
+      "name": "Tether USD"
+    },
+    "USDC": {
+      "address": "0x33B88bB907eE71cBA2c95666bb5b807b49a14d80",
+      "decimals": 6,
+      "symbol": "USDC",
+      "name": "USD Coin"
+    },
+    "DAI": {
+      "address": "0x467C1A0F1B3330681d69eA154904ee70bbeA9e13",
+      "decimals": 18,
+      "symbol": "DAI",
+      "name": "Dai Stablecoin"
+    },
+    "BUSD": {
+      "address": "0x902d76b5083a2368Fe6c758C5E00F3325E55A22A",
+      "decimals": 18,
+      "symbol": "BUSD",
+      "name": "Binance USD"
+    }
+  }
+}

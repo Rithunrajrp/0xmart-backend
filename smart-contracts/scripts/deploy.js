@@ -23,7 +23,12 @@ async function main() {
 
   // Deploy contract
   const OxMartPayment = await ethers.getContractFactory("OxMartPayment");
-  const contract = await OxMartPayment.deploy(hotWalletAddress);
+  // Deploy contract with manual gas limit to avoid estimation errors on testnet
+  // 10 Gwei gas price, 5M gas limit
+  const contract = await OxMartPayment.deploy(hotWalletAddress, {
+    gasLimit: 5000000,
+    gasPrice: 10000000000n
+  });
 
   await contract.waitForDeployment();
 
