@@ -92,7 +92,7 @@ model Wallet {
   userId         String
   stablecoinType StablecoinType
   network        NetworkType
-  depositAddress String         @unique
+  depositAddress String         // Removed @unique to allow EVM address reuse
   balance        Decimal        @default(0) @db.Decimal(20, 8)
   lockedBalance  Decimal        @default(0) @db.Decimal(20, 8)
   createdAt      DateTime       @default(now())
@@ -408,44 +408,46 @@ model SellerDocument {
 }
 
 model Product {
-  id                String          @id @default(uuid())
+  id                String            @id @default(uuid())
   name              String
   description       String?
   imageUrl          String?
   category          String?
-  status            ProductStatus   @default(PENDING_REVIEW)
+  status            ProductStatus     @default(PENDING_REVIEW)
   metadata          Json?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
   barcode           String?
   brand             String?
   dimensions        Json?
   images            Json?
-  isDigital         Boolean         @default(false)
-  isFeatured        Boolean         @default(false)
-  lowStockThreshold Int             @default(10)
+  isDigital         Boolean           @default(false)
+  isFeatured        Boolean           @default(false)
+  lowStockThreshold Int               @default(10)
   metaDescription   String?
   metaTitle         String?
-  rating            Decimal         @default(0) @db.Decimal(3, 2)
+  rating            Decimal           @default(0) @db.Decimal(3, 2)
   sellerId          String
   shippingClass     String?
   shortDescription  String?
   sku               String?
-  slug              String?         @unique
+  slug              String?           @unique
   specifications    Json?
-  stock             Int             @default(0)
+  stock             Int               @default(0)
   subcategory       String?
   tags              Json?
-  totalReviews      Int             @default(0)
+  totalReviews      Int               @default(0)
   videoUrl          String?
-  weight            Decimal?        @db.Decimal(10, 2)
+  weight            Decimal?          @db.Decimal(10, 2)
+  hasVariants       Boolean           @default(false)
   adClicks          AdClick[]
   externalOrders    ExternalOrder[]
   favorites         Favorite[]
   orderItems        OrderItem[]
   prices            ProductPrice[]
   reviews           ProductReview[]
-  seller            Seller          @relation(fields: [sellerId], references: [id])
+  seller            Seller            @relation(fields: [sellerId], references: [id])
+  variants          ProductVariant[]
 
   @@index([sellerId])
   @@index([status])
@@ -453,6 +455,28 @@ model Product {
   @@index([brand])
   @@index([slug])
   @@map("products")
+}
+
+model ProductVariant {
+  id              String        @id @default(uuid())
+  productId       String
+  name            String        // e.g., "Red - Large - 500g"
+  sku             String?       @unique
+  attributes      Json          // { "color": "Red", "size": "Large", "weight": "500g", "unit": "grams" }
+  priceAdjustment Decimal       @default(0) @db.Decimal(20, 8) // Can be positive or negative
+  stock           Int           @default(0)
+  images          Json?         // Array of image URLs specific to this variant
+  isDefault       Boolean       @default(false)
+  status          VariantStatus @default(ACTIVE)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems      OrderItem[]
+
+  @@index([productId])
+  @@index([sku])
+  @@index([status])
+  @@map("product_variants")
 }
 
 model DeletedProduct {
@@ -567,19 +591,22 @@ model Order {
 }
 
 model OrderItem {
-  id             String         @id @default(uuid())
+  id             String          @id @default(uuid())
   orderId        String
   productId      String
+  variantId      String?
   quantity       Int
   stablecoinType StablecoinType
-  pricePerUnit   Decimal        @db.Decimal(20, 8)
-  totalPrice     Decimal        @db.Decimal(20, 8)
+  pricePerUnit   Decimal         @db.Decimal(20, 8)
+  totalPrice     Decimal         @db.Decimal(20, 8)
   metadata       Json?
-  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product        Product        @relation(fields: [productId], references: [id])
+  order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product        Product         @relation(fields: [productId], references: [id])
+  variant        ProductVariant? @relation(fields: [variantId], references: [id])
 
   @@index([orderId])
   @@index([productId])
+  @@index([variantId])
   @@map("order_items")
 }
 
@@ -675,14 +702,16 @@ model ApiKey {
   creationFeeAmount   Decimal?           @db.Decimal(20, 8)
   creationFeePaid     Boolean            @default(false)
   creationFeeTxHash   String?
-  supportedNetworks   NetworkType[]
-  isTestnetMode       Boolean            @default(false) // If true, uses testnet networks for all transactions
-  adClicks            AdClick[]
-  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  usageLogs           ApiUsageLog[]
-  payouts             CommissionPayout[]
-  commissions         Commission[]
-  externalOrders      ExternalOrder[]
+  supportedNetworks              NetworkType[]
+  isTestnetMode                  Boolean                       @default(false) // If true, uses testnet networks for all transactions
+  usePersonalizedRecommendations Boolean                       @default(false) // Enable personalized product recommendations
+  adClicks                       AdClick[]
+  user                           User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usageLogs                      ApiUsageLog[]
+  payouts                        CommissionPayout[]
+  commissions                    Commission[]
+  externalOrders                 ExternalOrder[]
+  recommendationConfig           ApiKeyRecommendationConfig?
 
   @@index([userId])
   @@index([keyHash])
@@ -708,6 +737,24 @@ model ApiUsageLog {
   @@index([createdAt])
   @@index([endpoint])
   @@map("api_usage_logs")
+}
+
+model ApiKeyRecommendationConfig {
+  id                   String   @id @default(uuid())
+  apiKeyId             String   @unique
+  apiKey               ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  selectedProductIds   String[] // Specific products to recommend
+  selectedCategories   String[] // Categories to recommend from
+  minRating            Decimal? @db.Decimal(3, 2) // Minimum product rating
+  maxPrice             Decimal? @db.Decimal(20, 8) // Maximum product price
+  minPrice             Decimal? @db.Decimal(20, 8) // Minimum product price
+  prioritizeInStock    Boolean  @default(true) // Prioritize in-stock products
+  prioritizeHighRated  Boolean  @default(false) // Prioritize high-rated products
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([apiKeyId])
+  @@map("api_key_recommendation_configs")
 }
 
 model AdClick {
@@ -979,7 +1026,7 @@ enum UserRole {
   USER
   ADMIN
   SUPER_ADMIN
-  EMPLOYEE
+  MERCHANT
 }
 
 enum UserType {
@@ -1140,6 +1187,12 @@ enum ProductStatus {
   REJECTED
 }
 
+enum VariantStatus {
+  ACTIVE
+  INACTIVE
+  OUT_OF_STOCK
+}
+
 enum OrderStatus {
   PENDING
   PAYMENT_PENDING
@@ -1190,6 +1243,7 @@ enum AuditAction {
   ADDRESS_ADDED
   ADDRESS_UPDATED
   ADDRESS_DELETED
+  WALLET_REFRESH
 }
 
 enum ApiKeyStatus {
@@ -1328,4 +1382,24 @@ model NetworkConfig {
   @@index([sortOrder])
   @@index([contractDeployed])
   @@map("network_configs")
+}
+
+model SystemSettings {
+  id                    String   @id @default("singleton")
+  kycEnabled            Boolean  @default(false)
+  maintenanceMode       Boolean  @default(false)
+  maintenanceMessage    String?
+  registrationEnabled   Boolean  @default(true)
+  withdrawalsEnabled    Boolean  @default(true)
+  depositsEnabled       Boolean  @default(true)
+  fiatPurchaseEnabled   Boolean  @default(true)
+  minWithdrawalAmount   Decimal  @default(10) @db.Decimal(20, 8)
+  maxWithdrawalAmount   Decimal  @default(50000) @db.Decimal(20, 8)
+  withdrawalFeePercent  Decimal  @default(0) @db.Decimal(5, 2)
+  metadata              Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  updatedBy             String?
+
+  @@map("system_settings")
 }

@@ -22,6 +22,7 @@ import {
   UpdateWebhookDto,
   UpdateTierDto,
 } from './dto/create-api-key.dto';
+import { UpdateRecommendationConfigDto } from './dto/recommendation-config.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { SmartContractService } from '../smart-contract/services/smart-contract.service';
@@ -67,6 +68,9 @@ export class ApiKeysController {
       expiresInDays: createApiKeyDto.expiresInDays,
       subscriptionTier: createApiKeyDto.subscriptionTier,
       webhookUrl: createApiKeyDto.webhookUrl,
+      usePersonalizedRecommendations:
+        createApiKeyDto.usePersonalizedRecommendations,
+      recommendationConfig: createApiKeyDto.recommendationConfig,
     });
   }
 
@@ -216,6 +220,28 @@ export class ApiKeysController {
     @Body() updateTierDto: UpdateTierDto,
   ) {
     return this.apiKeysService.updateTier(user.id, id, updateTierDto.tier);
+  }
+
+  @Patch(':id/recommendations')
+  @ApiOperation({
+    summary: 'Update recommendation configuration',
+    description:
+      'Update personalized product recommendation settings for an API key',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Recommendation configuration updated',
+  })
+  async updateRecommendationConfig(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+    @Body() updateRecommendationConfigDto: UpdateRecommendationConfigDto,
+  ) {
+    return this.apiKeysService.updateRecommendationConfig(
+      user.id,
+      id,
+      updateRecommendationConfigDto,
+    );
   }
 
   @Delete(':id')

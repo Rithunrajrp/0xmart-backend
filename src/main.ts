@@ -18,9 +18,36 @@ async function bootstrap() {
 
   // Security
   app.use(helmet());
+
+  // CORS - Allow multiple origins including subdomains
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://superadmin.localhost:3000',
+    'http://merchant.localhost:3000',
+    'http://admin.localhost:3000',
+    process.env.FRONTEND_URL,
+  ].filter(Boolean);
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || '*',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      // Check if origin is in allowed list or matches localhost pattern
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.match(/^http:\/\/(.*\.)?localhost:3000$/)
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   });
 
   // Compression

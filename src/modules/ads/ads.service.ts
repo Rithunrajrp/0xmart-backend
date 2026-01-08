@@ -37,7 +37,195 @@ export class AdsService {
   /**
    * Get product recommendations based on customer preferences
    */
-  async getRecommendations(apiKeyId: string, query: RecommendationQuery) {
+  async getRecommendations(
+    apiKeyId: string,
+    query: RecommendationQuery & {
+      productIds?: string[];
+      productNames?: string[];
+    },
+  ) {
+    // Get API key with recommendation config
+    const apiKey = await this.prisma.apiKey.findUnique({
+      where: { id: apiKeyId },
+      include: { recommendationConfig: true },
+    });
+
+    if (!apiKey) {
+      throw new NotFoundException('API key not found');
+    }
+
+    let products: any[] = [];
+    let recommendationSource = 'algorithm';
+
+    // PRIORITY 1: Specific product IDs/names in request (highest priority)
+    if (
+      (query.productIds && query.productIds.length > 0) ||
+      (query.productNames && query.productNames.length > 0)
+    ) {
+      products = await this.getProductsByIdsOrNames(
+        query.productIds,
+        query.productNames,
+      );
+      recommendationSource = 'direct_request';
+    }
+    // PRIORITY 2: Personalized recommendations from API key config
+    else if (
+      apiKey.usePersonalizedRecommendations &&
+      apiKey.recommendationConfig
+    ) {
+      products = await this.getPersonalizedRecommendations(
+        apiKey.recommendationConfig,
+        query,
+      );
+      recommendationSource = 'personalized_config';
+    }
+    // PRIORITY 3: Fallback to algorithm-based recommendations
+    else {
+      products = await this.getAlgorithmRecommendations(query);
+      recommendationSource = 'algorithm';
+    }
+
+    // Apply customer filters (category, price range, etc.)
+    products = this.applyCustomerFilters(products, query);
+
+    // Limit results
+    const limit = query.limit || 10;
+    products = products.slice(0, limit);
+
+    // Create ad click records for tracking
+    const recommendations = await Promise.all(
+      products.map(async (product) => {
+        const clickToken = this.generateClickToken();
+        const expiresAt = new Date();
+        expiresAt.setHours(
+          expiresAt.getHours() + this.CLICK_TOKEN_EXPIRY_HOURS,
+        );
+
+        // Store click token for tracking
+        await this.prisma.adClick.create({
+          data: {
+            apiKeyId,
+            productId: product.id,
+            clickToken,
+            customerSessionId: query.customerSessionId,
+            customerPreferences: {
+              category: query.category,
+              priceRange: query.priceRange,
+              location: query.location,
+              userType: query.userType,
+              keywords: query.keywords,
+              source: recommendationSource,
+            },
+            expiresAt,
+          },
+        });
+
+        return {
+          productId: product.id,
+          title: product.name,
+          description: product.description,
+          thumbnail: product.imageUrl,
+          images: product.images,
+          category: product.category,
+          prices: product.prices.map((p) => ({
+            currency: p.stablecoinType,
+            price: p.price.toString(),
+          })),
+          stock: product.stock,
+          adClickToken: clickToken,
+        };
+      }),
+    );
+
+    this.logger.log(
+      `Generated ${recommendations.length} recommendations (source: ${recommendationSource}) for API key ${apiKeyId}`,
+    );
+
+    return {
+      status: true,
+      count: recommendations.length,
+      source: recommendationSource,
+      ads: recommendations,
+    };
+  }
+
+  /**
+   * Get products by specific IDs or names
+   */
+  private async getProductsByIdsOrNames(ids?: string[], names?: string[]) {
+    const where: any = { status: 'ACTIVE' };
+
+    if (ids && ids.length > 0) {
+      where.id = { in: ids };
+    } else if (names && names.length > 0) {
+      where.name = { in: names, mode: 'insensitive' }; // Case-insensitive match
+    }
+
+    return this.prisma.product.findMany({
+      where,
+      include: { prices: true },
+    });
+  }
+
+  /**
+   * Get personalized recommendations based on API key configuration
+   */
+  private async getPersonalizedRecommendations(
+    config: any,
+    query: RecommendationQuery,
+  ) {
+    const where: any = { status: 'ACTIVE' };
+
+    // Use config's product selection
+    if (config.selectedProductIds?.length > 0) {
+      where.id = { in: config.selectedProductIds };
+    } else if (config.selectedCategories?.length > 0) {
+      where.category = { in: config.selectedCategories };
+    }
+
+    // Apply config filters
+    if (config.minRating) {
+      where.rating = { gte: config.minRating };
+    }
+
+    let products = await this.prisma.product.findMany({
+      where,
+      include: { prices: true },
+    });
+
+    // Filter by price if configured
+    if (config.minPrice || config.maxPrice) {
+      products = products.filter((p) => {
+        const price = p.prices.find((pr) => pr.stablecoinType === 'USDT');
+        if (!price) return false;
+        const priceValue = parseFloat(price.price.toString());
+
+        if (config.minPrice && priceValue < parseFloat(config.minPrice))
+          return false;
+        if (config.maxPrice && priceValue > parseFloat(config.maxPrice))
+          return false;
+        return true;
+      });
+    }
+
+    // Sort based on preferences
+    if (config.prioritizeHighRated) {
+      products.sort(
+        (a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0),
+      );
+    }
+
+    if (config.prioritizeInStock) {
+      products.sort((a, b) => (Number(b.stock) || 0) - (Number(a.stock) || 0));
+    }
+
+    return products;
+  }
+
+  /**
+   * Get algorithm-based recommendations (fallback)
+   */
+  private async getAlgorithmRecommendations(query: RecommendationQuery) {
     const where: any = {
       status: 'ACTIVE',
       stock: { gt: 0 }, // Only in-stock products
@@ -63,19 +251,22 @@ export class AdsService {
       ];
     }
 
-    // Get products with prices
-    let products = await this.prisma.product.findMany({
+    return this.prisma.product.findMany({
       where,
-      include: {
-        prices: true,
-      },
-      take: query.limit || 10,
+      include: { prices: true },
       orderBy: { updatedAt: 'desc' },
     });
+  }
 
-    // Filter by price range if specified
+  /**
+   * Apply customer filters to product list
+   */
+  private applyCustomerFilters(products: any[], query: RecommendationQuery) {
+    let filtered = products;
+
+    // Filter by price range if specified in query
     if (query.priceRange) {
-      products = products.filter((product) => {
+      filtered = filtered.filter((product) => {
         const primaryPrice = product.prices[0];
         if (!primaryPrice) return false;
         const price = Number(primaryPrice.price);
@@ -83,59 +274,16 @@ export class AdsService {
       });
     }
 
-    // Create ad click records for tracking
-    const recommendations = await Promise.all(
-      products.map(async (product) => {
-        const clickToken = this.generateClickToken();
-        const expiresAt = new Date();
-        expiresAt.setHours(
-          expiresAt.getHours() + this.CLICK_TOKEN_EXPIRY_HOURS,
-        );
+    // Filter by category if specified in query
+    if (query.category) {
+      filtered = filtered.filter((product) =>
+        product.category
+          ?.toLowerCase()
+          .includes(query.category!.toLowerCase()),
+      );
+    }
 
-        // Store click token for tracking
-        await this.prisma.adClick.create({
-          data: {
-            apiKeyId,
-            productId: product.id,
-            clickToken,
-            customerSessionId: query.customerSessionId,
-            customerPreferences: {
-              category: query.category,
-              priceRange: query.priceRange,
-              location: query.location,
-              userType: query.userType,
-              keywords: query.keywords,
-            },
-            expiresAt,
-          },
-        });
-
-        return {
-          productId: product.id,
-          title: product.name,
-          description: product.description,
-          thumbnail: product.imageUrl,
-          images: product.images,
-          category: product.category,
-          prices: product.prices.map((p) => ({
-            currency: p.stablecoinType,
-            price: p.price.toString(),
-          })),
-          stock: product.stock,
-          adClickToken: clickToken,
-        };
-      }),
-    );
-
-    this.logger.log(
-      `Generated ${recommendations.length} recommendations for API key ${apiKeyId}`,
-    );
-
-    return {
-      status: true,
-      count: recommendations.length,
-      ads: recommendations,
-    };
+    return filtered;
   }
 
   /**

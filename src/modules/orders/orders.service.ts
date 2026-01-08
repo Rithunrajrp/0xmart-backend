@@ -35,7 +35,7 @@ export class OrdersService {
   }
 
   async create(userId: string, createOrderDto: CreateOrderDto) {
-    const { stablecoinType, items, shippingAddress } = createOrderDto;
+    const { stablecoinType, items, shippingAddress, metadata } = createOrderDto;
 
     // Validate products and calculate totals
     let subtotal = new Decimal(0);
@@ -84,84 +84,167 @@ export class OrdersService {
     const tax = subtotal.mul(0.1);
     const total = subtotal.add(tax);
 
-    // Check user wallet balance
-    const wallet = await this.prisma.wallet.findUnique({
-      where: {
-        userId_stablecoinType_network: {
-          userId,
-          stablecoinType,
-          network: 'POLYGON', // Default to Polygon for orders
-        },
-      },
-    });
+    // Extract smart contract payment details from metadata
+    const isSmartContractPayment = metadata?.paymentMethod === 'smart_contract';
+    const transactionHash = metadata?.transactionHash;
+    const network = metadata?.network;
 
-    if (!wallet) {
-      throw new BadRequestException(
-        `No ${stablecoinType} wallet found. Please create a wallet first.`,
+    // Check user wallet balance only if NOT a smart contract payment
+    let wallet: any = null;
+    if (!isSmartContractPayment) {
+      // Use network from metadata if provided (for deposit payments), otherwise default to POLYGON
+      const depositNetwork = metadata?.network || 'POLYGON';
+
+      wallet = await this.prisma.wallet.findUnique({
+        where: {
+          userId_stablecoinType_network: {
+            userId,
+            stablecoinType,
+            network: depositNetwork,
+          },
+        },
+      });
+
+      if (!wallet) {
+        throw new BadRequestException(
+          `No ${stablecoinType} wallet found on ${depositNetwork} network. Please create a wallet or select a different network.`,
+        );
+      }
+
+      const availableBalance = new Decimal(wallet.balance.toString()).sub(
+        new Decimal(wallet.lockedBalance.toString()),
       );
+
+      if (availableBalance.lessThan(total)) {
+        throw new BadRequestException(
+          `Insufficient balance. Required: ${total.toString()} ${stablecoinType}, Available: ${availableBalance.toString()} ${stablecoinType}`,
+        );
+      }
     }
 
-    const availableBalance = new Decimal(wallet.balance.toString()).sub(
-      new Decimal(wallet.lockedBalance.toString()),
-    );
-
-    if (availableBalance.lessThan(total)) {
-      throw new BadRequestException(
-        `Insufficient balance. Required: ${total.toString()} ${stablecoinType}, Available: ${availableBalance.toString()} ${stablecoinType}`,
-      );
-    }
-
-    // Create order
-    const order = await this.prisma.order.create({
-      data: {
-        userId,
-        orderNumber: this.generateOrderNumber(),
-        stablecoinType,
-        subtotal,
-        tax,
-        total,
-        status: OrderStatus.PAYMENT_PENDING,
-
-        shippingAddress,
-        items: {
-          create: orderItems,
-        },
-      },
-      include: {
-        items: {
+    // For deposit payments, process payment immediately in a transaction
+    // For smart contract payments, create order and wait for blockchain confirmation
+    if (!isSmartContractPayment && wallet) {
+      // Deposit payment: Process everything in a single transaction
+      const order = await this.prisma.$transaction(async (tx) => {
+        // Create order with CONFIRMED status since we're processing payment now
+        const newOrder = await tx.order.create({
+          data: {
+            userId,
+            orderNumber: this.generateOrderNumber(),
+            stablecoinType,
+            subtotal,
+            tax,
+            total,
+            status: OrderStatus.CONFIRMED,
+            network: wallet.network,
+            metadata,
+            shippingAddress,
+            paidAt: new Date(),
+            items: {
+              create: orderItems,
+            },
+          },
           include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                imageUrl: true,
+            items: {
+              include: {
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    imageUrl: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        // Deduct from wallet balance
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: {
+            balance: { decrement: total },
+          },
+        });
+
+        // Create completed transaction record
+        await tx.transaction.create({
+          data: {
+            userId,
+            orderId: newOrder.id,
+            type: TransactionType.PURCHASE,
+            status: TransactionStatus.COMPLETED,
+            stablecoinType,
+            network: wallet.network,
+            amount: total,
+            fee: 0,
+          },
+        });
+
+        return newOrder;
+      });
+
+      this.logger.log(`Deposit payment order created and confirmed: ${order.orderNumber}`);
+
+      // Process rewards and user type upgrades asynchronously
+      this.processPostOrderRewards(order).catch((error) => {
+        this.logger.error(`Failed to process rewards for order ${order.id}`, error);
+      });
+
+      return order;
+    } else {
+      // Smart contract payment: Create order with PAYMENT_PENDING status
+      const order = await this.prisma.order.create({
+        data: {
+          userId,
+          orderNumber: this.generateOrderNumber(),
+          stablecoinType,
+          subtotal,
+          tax,
+          total,
+          status: OrderStatus.PAYMENT_PENDING,
+          transactionHash: transactionHash || undefined,
+          network: network || undefined,
+          metadata,
+          shippingAddress,
+          items: {
+            create: orderItems,
+          },
+        },
+        include: {
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  imageUrl: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      });
 
-    // Lock balance
-    await this.walletsService.lockBalance(wallet.id, total);
+      // Create pending transaction record for smart contract payment
+      await this.prisma.transaction.create({
+        data: {
+          userId,
+          orderId: order.id,
+          type: TransactionType.PURCHASE,
+          status: TransactionStatus.PENDING,
+          stablecoinType,
+          network: network || 'ETHEREUM',
+          amount: total,
+          fee: 0,
+        },
+      });
 
-    // Create transaction record
-    await this.prisma.transaction.create({
-      data: {
-        userId,
-        orderId: order.id,
-        type: TransactionType.PURCHASE,
-        status: TransactionStatus.PENDING,
-        stablecoinType,
-        network: 'POLYGON',
-        amount: total,
-        fee: 0,
-      },
-    });
+      this.logger.log(`Smart contract payment order created: ${order.orderNumber}, awaiting blockchain confirmation`);
 
-    this.logger.log(`Order created: ${order.orderNumber} for user ${userId}`);
-
-    return order;
+      return order;
+    }
   }
 
   async confirmPayment(orderId: string) {
@@ -178,19 +261,23 @@ export class OrdersService {
       throw new BadRequestException('Order payment already processed');
     }
 
+    // Get the network from order metadata or default to POLYGON
+    const metadata = order.metadata as any;
+    const orderNetwork = metadata?.network || 'POLYGON';
+
     // Get wallet
     const wallet = await this.prisma.wallet.findUnique({
       where: {
         userId_stablecoinType_network: {
           userId: order.userId,
           stablecoinType: order.stablecoinType,
-          network: 'POLYGON',
+          network: orderNetwork,
         },
       },
     });
 
     if (!wallet) {
-      throw new NotFoundException('Wallet not found');
+      throw new NotFoundException(`Wallet not found for ${order.stablecoinType} on ${orderNetwork} network`);
     }
 
     // Deduct from balance and unlock
@@ -510,5 +597,42 @@ export class OrdersService {
     );
 
     return updatedOrder;
+  }
+
+  async getOrderStats() {
+    // Calculate total revenue from all confirmed/completed orders
+    const orders = await this.prisma.order.findMany({
+      where: {
+        status: {
+          in: [
+            OrderStatus.CONFIRMED,
+            OrderStatus.PROCESSING,
+            OrderStatus.SHIPPED,
+            OrderStatus.DELIVERED,
+          ],
+        },
+      },
+      select: {
+        total: true,
+      },
+    });
+
+    const totalRevenue = orders.reduce((sum, order) => {
+      return sum + parseFloat(order.total.toString());
+    }, 0);
+
+    // Count orders by status
+    const ordersByStatus = await this.prisma.order.groupBy({
+      by: ['status'],
+      _count: true,
+    });
+
+    const totalOrders = await this.prisma.order.count();
+
+    return {
+      totalRevenue,
+      totalOrders,
+      ordersByStatus,
+    };
   }
 }

@@ -54,6 +54,7 @@ export class EvmListenerService implements OnModuleInit, OnModuleDestroy {
   private reconnectAttempts: Map<NetworkType, number> = new Map();
   private maxReconnectAttempts = 5;
   private reconnectDelay = 5000; // 5 seconds
+  private pollingInterval = 15000; // 15 seconds - increased to reduce RPC requests
 
   constructor(
     private readonly prisma: PrismaService,
@@ -110,8 +111,12 @@ export class EvmListenerService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      // Create provider
+      // Create provider with custom polling interval
       const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+
+      // Set custom polling interval to reduce RPC requests (default is 4000ms)
+      provider.pollingInterval = this.pollingInterval;
+
       await provider.getNetwork(); // Verify connection
       this.providers.set(network, provider);
 
@@ -191,8 +196,32 @@ export class EvmListenerService implements OnModuleInit, OnModuleDestroy {
 
       // Setup provider error handling
       provider.on('error', (error) => {
-        this.logger.error(`Provider error for ${network}: ${error.message}`);
-        this.handleProviderError(network);
+        // Check if it's a rate limiting error
+        if (
+          error.message?.includes('limit exceeded') ||
+          error.message?.includes('rate limit') ||
+          error.message?.includes('block range') ||
+          error.code === -32005 ||
+          error.code === -32600
+        ) {
+          this.logger.warn(
+            `⚠️  Rate limit hit for ${network}, slowing down polling...`,
+          );
+          // Increase polling interval temporarily for this network
+          const currentProvider = this.providers.get(network);
+          if (currentProvider) {
+            currentProvider.pollingInterval = Math.min(
+              currentProvider.pollingInterval * 1.5,
+              60000,
+            ); // Max 60 seconds
+            this.logger.debug(
+              `Increased polling interval for ${network} to ${currentProvider.pollingInterval}ms`,
+            );
+          }
+        } else {
+          this.logger.error(`Provider error for ${network}: ${error.message}`);
+          this.handleProviderError(network);
+        }
       });
 
       // Setup websocket reconnection if applicable

@@ -92,6 +92,30 @@ export class GetRecommendationsDto {
   @Min(1)
   @Max(50)
   limit?: number;
+
+  @ApiProperty({
+    example: ['prod-123', 'prod-456'],
+    description:
+      'Specific product IDs to recommend (overrides personalized config)',
+    type: [String],
+    required: false,
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  productIds?: string[];
+
+  @ApiProperty({
+    example: ['iPhone 15 Pro', 'MacBook Air'],
+    description:
+      'Product names to search and recommend (fuzzy matching, overrides personalized config)',
+    type: [String],
+    required: false,
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  productNames?: string[];
 }
 
 export class AdClickOpenDto {

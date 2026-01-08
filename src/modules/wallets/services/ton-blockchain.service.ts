@@ -364,4 +364,95 @@ export class TonBlockchainService {
       return 0;
     }
   }
+
+  /**
+   * Parse jetton transfer from transaction
+   * Jetton transfers in TON are internal messages with specific structure
+   * @param txHash Transaction hash
+   * @param recipientAddress Expected recipient address to filter
+   * @returns Transfer details or null
+   */
+  async parseJettonTransfer(
+    txHash: string,
+    recipientAddress: string,
+  ): Promise<{
+    from: string;
+    to: string;
+    amount: string;
+    jettonMaster: string;
+  } | null> {
+    try {
+      // Get full transaction details
+      const response = await fetch(this.tonRpcUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': this.tonApiKey,
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'getTransactions',
+          params: {
+            address: recipientAddress,
+            limit: 50,
+          },
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.error || !data.result) {
+        return null;
+      }
+
+      // Find the transaction with matching hash
+      const tx = data.result.find(
+        (t: any) => t.transaction_id?.hash === txHash,
+      );
+
+      if (!tx) {
+        return null;
+      }
+
+      // Check for internal messages (jetton transfers come as internal messages)
+      const outMsgs = tx.out_msgs || [];
+      const inMsg = tx.in_msg;
+
+      // Jetton transfer notification has specific structure
+      // Internal message to user's wallet with transfer notification
+      if (inMsg && inMsg.message) {
+        try {
+          // Parse message body for jetton transfer
+          // Jetton transfer internal message has op code 0x7362d09c
+          const msgBody = inMsg.message || '';
+
+          // Check if this is a jetton transfer notification
+          // This is a simplified check - production code should parse BOC
+          if (
+            msgBody.includes('transfer_notification') ||
+            inMsg.msg_data?.text?.includes('jetton')
+          ) {
+            // Extract transfer details from message
+            // Note: This is simplified - real implementation needs BOC parsing
+            return {
+              from: inMsg.source || '',
+              to: inMsg.destination || recipientAddress,
+              amount: inMsg.value || '0',
+              jettonMaster: '', // Would need to derive from jetton wallet address
+            };
+          }
+        } catch (parseError) {
+          this.logger.debug(`Could not parse jetton message: ${parseError.message}`);
+        }
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.error(
+        `Failed to parse jetton transfer ${txHash}: ${error.message}`,
+      );
+      return null;
+    }
+  }
 }

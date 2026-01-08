@@ -1,0 +1,10 @@
+{
+  "contractName": "PaymentProcessor",
+  "network": "amoy",
+  "chainId": "80002",
+  "contractAddress": "0x902Fa6542a3466b13de3bBBa1d6483162b199fe2",
+  "hotWalletAddress": "0x0b8338c719E6b9627E27b9D984d72b5278b17F10",
+  "deployer": "0x0b8338c719E6b9627E27b9D984d72b5278b17F10",
+  "deploymentTime": "2025-12-29T10:33:36.080Z",
+  "blockNumber": 31367856
+}

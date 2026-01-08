@@ -19,6 +19,8 @@ import {
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { CreateProductVariantDto } from './dto/create-product-variant.dto';
+import { UpdateProductVariantDto } from './dto/update-product-variant.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -112,5 +114,58 @@ export class ProductsController {
   @ApiResponse({ status: 200 })
   remove(@Param('id') id: string, @Body() body: { deletedBy: string; reason?: string }) {
     return this.productsService.remove(id, body.deletedBy, body.reason);
+  }
+
+  // ==================== Product Variant Endpoints ====================
+
+  @Post('variants')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Create product variant (Admin only)' })
+  @ApiResponse({ status: 201 })
+  createVariant(@Body() createVariantDto: CreateProductVariantDto) {
+    return this.productsService.createVariant(createVariantDto);
+  }
+
+  @Public()
+  @Get(':productId/variants')
+  @ApiOperation({ summary: 'Get all variants for a product' })
+  @ApiResponse({ status: 200 })
+  getProductVariants(@Param('productId') productId: string) {
+    return this.productsService.getProductVariants(productId);
+  }
+
+  @Patch('variants/:id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Update product variant (Admin only)' })
+  @ApiResponse({ status: 200 })
+  updateVariant(
+    @Param('id') id: string,
+    @Body() updateVariantDto: UpdateProductVariantDto,
+  ) {
+    return this.productsService.updateVariant(id, updateVariantDto);
+  }
+
+  @Patch('variants/:id/set-default')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Set variant as default (Admin only)' })
+  @ApiResponse({ status: 200 })
+  setDefaultVariant(@Param('id') id: string) {
+    return this.productsService.setDefaultVariant(id);
+  }
+
+  @Delete('variants/:id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Delete product variant (Admin only)' })
+  @ApiResponse({ status: 200 })
+  deleteVariant(@Param('id') id: string) {
+    return this.productsService.deleteVariant(id);
   }
 }

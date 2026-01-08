@@ -3,14 +3,17 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateWalletDto } from './dto/create-wallet.dto';
 import { TransferOutDto } from './dto/transfer-out.dto';
 import { AddressGeneratorService } from './services/address-generator.service';
 import { BlockchainService } from './services/blockchain.service';
-import { TransactionStatus } from '@prisma/client';
+import { TransactionStatus, NetworkType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import { DepositMonitorService } from '../deposit-monitor/deposit-monitor.service';
 
 @Injectable()
 export class WalletsService {
@@ -20,6 +23,8 @@ export class WalletsService {
     private prisma: PrismaService,
     private addressGenerator: AddressGeneratorService,
     private blockchain: BlockchainService,
+    @Inject(forwardRef(() => DepositMonitorService))
+    private depositMonitor: DepositMonitorService,
   ) {}
 
   async createWallet(userId: string, createWalletDto: CreateWalletDto) {
@@ -40,17 +45,56 @@ export class WalletsService {
       return existingWallet;
     }
 
-    // Count existing wallets for index
-    const walletCount = await this.prisma.wallet.count({ where: { userId } });
+    // EVM networks (Ethereum, Polygon, BSC, etc.) can share the same deposit address
+    // since they all use the same address format (0x...)
+    const evmNetworks: NetworkType[] = ['ETHEREUM', 'POLYGON', 'BSC', 'ARBITRUM', 'OPTIMISM', 'AVALANCHE', 'BASE'];
+    const isEVM = evmNetworks.includes(network);
 
-    // Generate new deposit address
-    const { address } = await this.addressGenerator.generateDepositAddress(
-      userId,
-      walletCount,
-      network, // Pass network to generate appropriate address type
-    );
+    let address: string;
 
-    // Create wallet
+    if (isEVM) {
+      // Check if user already has an EVM wallet and reuse its address
+      const existingEvmWallet = await this.prisma.wallet.findFirst({
+        where: {
+          userId,
+          network: { in: evmNetworks },
+        },
+      });
+
+      if (existingEvmWallet) {
+        // Reuse existing EVM address
+        address = existingEvmWallet.depositAddress;
+        this.logger.log(
+          `Reusing existing EVM address for user ${userId}: ${address}`,
+        );
+      } else {
+        // Generate new EVM address (first EVM wallet)
+        const walletCount = await this.prisma.wallet.count({ where: { userId } });
+        const generated = await this.addressGenerator.generateDepositAddress(
+          userId,
+          walletCount,
+          network,
+        );
+        address = generated.address;
+        this.logger.log(
+          `Generated new EVM address for user ${userId}: ${address}`,
+        );
+      }
+    } else {
+      // Non-EVM networks (Solana, Sui, TON) need unique addresses
+      const walletCount = await this.prisma.wallet.count({ where: { userId } });
+      const generated = await this.addressGenerator.generateDepositAddress(
+        userId,
+        walletCount,
+        network,
+      );
+      address = generated.address;
+      this.logger.log(
+        `Generated new ${network} address for user ${userId}: ${address}`,
+      );
+    }
+
+    // Create wallet (deposit address can now be reused across networks)
     const wallet = await this.prisma.wallet.create({
       data: {
         userId,
@@ -89,7 +133,16 @@ export class WalletsService {
   }
 
   async getWalletByAddress(address: string) {
-    return this.prisma.wallet.findUnique({
+    // Since depositAddress is no longer unique (EVM addresses are shared),
+    // this returns the first wallet with this address
+    return this.prisma.wallet.findFirst({
+      where: { depositAddress: address },
+    });
+  }
+
+  async getWalletsByAddress(address: string) {
+    // Get all wallets sharing the same deposit address
+    return this.prisma.wallet.findMany({
       where: { depositAddress: address },
     });
   }
@@ -263,6 +316,70 @@ export class WalletsService {
     return {
       deposits,
       withdrawals,
+    };
+  }
+
+  async refreshWalletBalance(walletId: string, userId: string) {
+    // Verify wallet belongs to user
+    const wallet = await this.getWallet(walletId, userId);
+
+    // Check rate limit - user can only refresh once every 10 seconds
+    const lastRefresh = await this.prisma.auditLog.findFirst({
+      where: {
+        userId,
+        action: 'WALLET_REFRESH',
+        entityId: walletId,
+        createdAt: {
+          gte: new Date(Date.now() - 10000), // Last 10 seconds
+        },
+      },
+    });
+
+    if (lastRefresh) {
+      const remainingSeconds = Math.ceil(
+        (10000 - (Date.now() - lastRefresh.createdAt.getTime())) / 1000,
+      );
+      throw new BadRequestException(
+        `Please wait ${remainingSeconds} seconds before refreshing again`,
+      );
+    }
+
+    // Log refresh action
+    await this.prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'WALLET_REFRESH',
+        entityType: 'wallet',
+        entityId: walletId,
+        metadata: {
+          network: wallet.network,
+          stablecoinType: wallet.stablecoinType,
+        },
+      },
+    });
+
+    this.logger.log(
+      `Manual wallet refresh triggered for wallet ${walletId} by user ${userId}`,
+    );
+
+    // Scan wallet for new deposits
+    const scanResult = await this.depositMonitor.scanSingleWallet(walletId);
+
+    // Get updated wallet
+    const updatedWallet = await this.prisma.wallet.findUnique({
+      where: { id: walletId },
+    });
+
+    if (!updatedWallet) {
+      throw new NotFoundException('Wallet not found');
+    }
+
+    return {
+      success: true,
+      hasNewDeposits: scanResult.hasNewDeposits,
+      newDepositsCount: scanResult.newDepositsCount,
+      balance: updatedWallet.balance.toString(),
+      message: scanResult.message,
     };
   }
 }

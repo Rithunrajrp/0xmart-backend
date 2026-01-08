@@ -20,8 +20,12 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import { Recaptcha } from '../../common/decorators/recaptcha.decorator';
+import { RecaptchaGuard } from '../../common/guards/recaptcha.guard';
 import { AuthResponseEntity } from './entities/auth-response.entity';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { CheckMerchantStatusDto } from './dto/check-merchant-status.dto';
+import { VerifyMerchantTokenDto } from './dto/verify-merchant-token.dto';
 
 export interface CurrentUserDto {
   id: string;
@@ -40,25 +44,29 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @Recaptcha('OTP_REQUEST')
+  @UseGuards(RecaptchaGuard)
   @Post('send-otp')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Send OTP to email (and phone if configured)' })
+  @ApiOperation({ summary: 'Send OTP to email (and phone if configured) - Requires reCAPTCHA' })
   @ApiResponse({ status: 200, description: 'OTP sent successfully' })
-  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 400, description: 'Bad request or reCAPTCHA failed' })
   sendOtp(@Body() sendOtpDto: SendOtpDto) {
     return this.authService.sendOtp(sendOtpDto);
   }
 
   @Public()
+  @Recaptcha('LOGIN')
+  @UseGuards(RecaptchaGuard)
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify OTP and login/register' })
+  @ApiOperation({ summary: 'Verify OTP and login/register - Requires reCAPTCHA' })
   @ApiResponse({
     status: 200,
     description: 'Login successful',
     type: AuthResponseEntity,
   })
-  @ApiResponse({ status: 400, description: 'Invalid OTP' })
+  @ApiResponse({ status: 400, description: 'Invalid OTP or reCAPTCHA failed' })
   async verifyOtp(@Body() verifyOtpDto: VerifyOtpDto) {
     return this.authService.verifyOtp(verifyOtpDto);
   }
@@ -121,5 +129,26 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Referral code validation result' })
   async validateReferralCode(@Query('code') code: string) {
     return this.authService.validateReferralCode(code);
+  }
+
+  @Public()
+  @Post('check-merchant-status')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Check merchant account status' })
+  @ApiResponse({ status: 200, description: 'Merchant status retrieved' })
+  @ApiResponse({ status: 404, description: 'Merchant not found' })
+  async checkMerchantStatus(@Body() dto: CheckMerchantStatusDto) {
+    return this.authService.checkMerchantStatus(dto);
+  }
+
+  @Public()
+  @Post('verify-merchant-token')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify merchant onboarding token and update status to PENDING_VERIFICATION' })
+  @ApiResponse({ status: 200, description: 'Token verified successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  @ApiResponse({ status: 404, description: 'Merchant not found' })
+  async verifyMerchantToken(@Body() dto: VerifyMerchantTokenDto) {
+    return this.authService.verifyMerchantOnboardingToken(dto);
   }
 }

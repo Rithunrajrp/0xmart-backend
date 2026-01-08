@@ -22,6 +22,11 @@ import { UserManagementService } from '../user-management/user-management.servic
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
+import { InitiateProfileUpdateDto } from './dto/initiate-profile-update.dto';
+import { VerifyCurrentCredentialsDto } from './dto/verify-current-credentials.dto';
+import { UpdateEmailDto, VerifyEmailUpdateDto } from './dto/update-email.dto';
+import { UpdatePhoneDto, VerifyPhoneUpdateDto } from './dto/update-phone.dto';
+import { DeleteAccountDto } from './dto/delete-account.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -84,6 +89,86 @@ export class UsersController {
   @ApiResponse({ status: 200 })
   async deactivateAccount(@CurrentUser() user: { id: string }) {
     return this.usersService.deactivateUser(user.id);
+  }
+
+  // Profile Update Routes
+  @Post('me/profile-update/initiate')
+  @ApiOperation({ summary: 'Initiate profile update (sends OTP to current credentials)' })
+  @ApiResponse({ status: 200 })
+  async initiateProfileUpdate(
+    @CurrentUser() user: { id: string },
+    @Body() dto: InitiateProfileUpdateDto,
+  ) {
+    const updateType = dto.updateType === 'EMAIL' ? 'email' : 'phone';
+    return this.usersService.initiateProfileUpdate(user.id, updateType);
+  }
+
+  @Post('me/profile-update/verify-current')
+  @ApiOperation({ summary: 'Verify current credentials with OTP' })
+  @ApiResponse({ status: 200 })
+  async verifyCurrentCredentials(
+    @CurrentUser() user: { id: string },
+    @Body() dto: VerifyCurrentCredentialsDto,
+  ) {
+    return this.usersService.verifyCurrentCredentials(
+      user.id,
+      dto.emailOtp,
+      dto.phoneOtp,
+    );
+  }
+
+  @Post('me/profile-update/email/initiate')
+  @ApiOperation({ summary: 'Initiate email update (sends OTP to new email)' })
+  @ApiResponse({ status: 200 })
+  async initiateEmailUpdate(
+    @CurrentUser() user: { id: string },
+    @Body() dto: UpdateEmailDto,
+  ) {
+    return this.usersService.initiateEmailUpdate(user.id, dto.newEmail);
+  }
+
+  @Post('me/profile-update/email/verify')
+  @ApiOperation({ summary: 'Verify new email with OTP and complete update' })
+  @ApiResponse({ status: 200 })
+  async verifyEmailUpdate(
+    @CurrentUser() user: { id: string },
+    @Body() dto: VerifyEmailUpdateDto,
+  ) {
+    return this.usersService.verifyEmailUpdate(user.id, dto.emailOtp);
+  }
+
+  @Post('me/profile-update/phone/initiate')
+  @ApiOperation({ summary: 'Initiate phone update (sends OTP to new phone)' })
+  @ApiResponse({ status: 200 })
+  async initiatePhoneUpdate(
+    @CurrentUser() user: { id: string },
+    @Body() dto: UpdatePhoneDto,
+  ) {
+    return this.usersService.initiatePhoneUpdate(
+      user.id,
+      dto.countryCode,
+      dto.newPhoneNumber,
+    );
+  }
+
+  @Post('me/profile-update/phone/verify')
+  @ApiOperation({ summary: 'Verify new phone with OTP and complete update' })
+  @ApiResponse({ status: 200 })
+  async verifyPhoneUpdate(
+    @CurrentUser() user: { id: string },
+    @Body() dto: VerifyPhoneUpdateDto,
+  ) {
+    return this.usersService.verifyPhoneUpdate(user.id, dto.phoneOtp);
+  }
+
+  @Delete('me/delete-account')
+  @ApiOperation({ summary: 'Permanently delete user account and all data' })
+  @ApiResponse({ status: 200 })
+  async deleteAccount(
+    @CurrentUser() user: { id: string },
+    @Body() dto: DeleteAccountDto,
+  ) {
+    return this.usersService.deleteAccount(user.id, dto.confirmationText);
   }
 
   // Admin routes

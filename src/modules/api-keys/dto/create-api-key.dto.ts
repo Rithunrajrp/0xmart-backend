@@ -10,7 +10,11 @@ import {
   IsEnum,
   IsArray,
   ArrayMinSize,
+  IsBoolean,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { RecommendationConfigDto } from './recommendation-config.dto';
 
 export class CreateApiKeyDto {
   @ApiProperty({
@@ -88,6 +92,26 @@ export class CreateApiKeyDto {
   @IsUrl()
   @IsOptional()
   webhookUrl?: string;
+
+  @ApiProperty({
+    example: true,
+    description: 'Enable personalized product recommendations',
+    required: false,
+    default: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  usePersonalizedRecommendations?: boolean;
+
+  @ApiProperty({
+    description: 'Configuration for personalized recommendations',
+    type: RecommendationConfigDto,
+    required: false,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RecommendationConfigDto)
+  recommendationConfig?: RecommendationConfigDto;
 }
 
 export class UpdateWebhookDto {

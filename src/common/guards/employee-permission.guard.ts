@@ -46,17 +46,17 @@ export class EmployeePermissionGuard implements CanActivate {
       return true;
     }
 
-    // Check if user is an employee
-    if (user.role !== UserRole.EMPLOYEE) {
-      throw new ForbiddenException('Employee access required');
-    }
-
     // Fetch employee record with permissions
     const employee = await this.prisma.employee.findUnique({
       where: { userId: user.id },
     });
 
-    if (!employee || !employee.isActive) {
+    // Check if user has an employee record
+    if (!employee) {
+      throw new ForbiddenException('Employee access required');
+    }
+
+    if (!employee.isActive) {
       throw new ForbiddenException('Employee account is inactive');
     }
 

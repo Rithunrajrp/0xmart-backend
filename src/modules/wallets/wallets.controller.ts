@@ -67,4 +67,13 @@ export class WalletsController {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return this.walletsService.initiateWithdrawal(user.id, transferOutDto);
   }
+
+  @Post(':id/refresh')
+  @ApiOperation({ summary: 'Manually refresh wallet balance by scanning blockchain' })
+  @ApiResponse({ status: 200, description: 'Wallet refreshed successfully' })
+  @ApiResponse({ status: 400, description: 'Rate limit exceeded - wait 10 seconds between refreshes' })
+  async refreshWallet(@Param('id') id: string, @CurrentUser() user: any) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    return this.walletsService.refreshWalletBalance(id, user.id);
+  }
 }

@@ -70,6 +70,8 @@ export class AdsController {
       keywords: dto.keywords,
       customerSessionId: dto.customerSessionId,
       limit: dto.limit,
+      productIds: dto.productIds,
+      productNames: dto.productNames,
     });
   }
 

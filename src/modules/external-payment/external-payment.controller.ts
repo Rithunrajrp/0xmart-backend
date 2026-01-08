@@ -197,22 +197,34 @@ export class ExternalPaymentController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Select payment network',
-    description: 'Step 4: Select blockchain network and get deposit address',
+    description: 'Step 4: Select blockchain network and get smart contract payment parameters',
   })
   @ApiHeader({ name: 'X-API-Key', description: 'API Key', required: true })
   @ApiResponse({
     status: 200,
-    description: 'Network selected, deposit address generated',
+    description: 'Network selected, smart contract parameters returned',
     schema: {
       example: {
         success: true,
         payment: {
-          depositAddress: '0x1234...',
+          contractAddress: '0x1234...ABCD',
+          tokenAddress: '0x5678...EFGH',
           amount: '54.99',
+          amountWei: '54990000',
           currency: 'USDT',
-          network: 'TON',
+          network: 'POLYGON',
           expiresAt: '2024-01-02T00:00:00Z',
-          qrData: '{"address":"0x...","amount":"54.99",...}',
+          method: 'payForProduct',
+          params: {
+            orderId: 'EXT-1234567890-0001',
+            productId: 'P123',
+            token: '0x5678...EFGH',
+            amount: '54990000',
+          },
+          abi: [],
+          tokenAbi: [],
+          estimatedGas: '200000',
+          qrData: '{"contractAddress":"0x...","method":"payForProduct",...}',
         },
       },
     },

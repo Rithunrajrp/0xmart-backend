@@ -66,6 +66,21 @@ export class EmailService {
       if (error) {
         this.logger.error(`SendGrid Error: ${JSON.stringify(error)}`);
       }
+
+      // Development fallback: Log OTP to console instead of failing
+      const nodeEnv = this.configService.get<string>('NODE_ENV');
+      if (nodeEnv !== 'production') {
+        this.logger.warn(
+          `\n${'='.repeat(60)}\n` +
+          `🔐 DEVELOPMENT MODE - OTP EMAIL FAILED\n` +
+          `📧 Email: ${email}\n` +
+          `🔑 OTP Code: ${otp}\n` +
+          `⚠️  Use this code to login (valid for 10 minutes)\n` +
+          `${'='.repeat(60)}\n`
+        );
+        return; // Allow login to proceed in development
+      }
+
       throw new Error('Failed to send OTP email');
     }
   }
@@ -394,18 +409,55 @@ export class EmailService {
     }
   }
 
+  async sendCustomEmail(
+    to: string,
+    subject: string,
+    html: string,
+  ): Promise<void> {
+    const apiKey = this.configService.get<string>('sendgrid.apiKey');
+    if (!apiKey) {
+      this.logger.warn(
+        `SendGrid not configured. Would send email to ${to} with subject: ${subject}`,
+      );
+      return;
+    }
+
+    try {
+      const fromEmail = this.configService.get<string>('sendgrid.fromEmail');
+      const fromName =
+        this.configService.get<string>('sendgrid.fromName') || '0xMart';
+
+      if (!fromEmail) {
+        this.logger.error('❌ SendGrid fromEmail not configured');
+        throw new Error('SendGrid fromEmail not configured');
+      }
+
+      const msg = {
+        to,
+        from: { email: fromEmail, name: fromName },
+        subject,
+        html,
+      };
+
+      await sgMail.send(msg);
+      this.logger.log(`✅ Custom email sent to ${to}`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to send custom email: ${error.message}`);
+      throw new Error('Failed to send custom email');
+    }
+  }
+
   async sendMerchantOnboardingEmail(
     email: string,
     companyName: string,
     onboardingLink: string,
+    expiryDate: Date,
   ): Promise<void> {
     const apiKey = this.configService.get<string>('sendgrid.apiKey');
-
     if (!apiKey) {
       this.logger.warn(
-        `Would send merchant onboarding email to ${email} for ${companyName}`,
+        `SendGrid not configured. Would send merchant onboarding email to ${email}`,
       );
-      this.logger.warn(`Onboarding link: ${onboardingLink}`);
       return;
     }
 
@@ -416,35 +468,24 @@ export class EmailService {
       const fromEmail = this.configService.get<string>('sendgrid.fromEmail');
       const fromName =
         this.configService.get<string>('sendgrid.fromName') || '0xMart';
+      const supportLink =
+        this.configService.get<string>('sendgrid.supportLink') ||
+        'https://support.0xmart.com/help';
 
-      // If no template configured, send simple email
-      if (!templateId || !fromEmail) {
-        this.logger.warn(
-          '❌ Missing SendGrid configuration for Merchant Onboarding Email. Sending simple email instead.',
+      if (!fromEmail || !templateId) {
+        this.logger.error(
+          '❌ Missing SendGrid configuration: fromEmail or merchantOnboardingTemplateId.',
         );
-
-        const simpleMsg = {
-          to: email,
-          from: { email: fromEmail || 'noreply@0xmart.com', name: fromName },
-          subject: 'Complete Your Merchant Onboarding - 0xMart',
-          text: `Hello ${companyName},\n\nWelcome to 0xMart! Please complete your merchant onboarding by clicking the link below:\n\n${onboardingLink}\n\nThis link will expire in 7 days.\n\nIf you have any questions, please contact our support team.\n\nBest regards,\n0xMart Team`,
-          html: `
-            <p>Hello <strong>${companyName}</strong>,</p>
-            <p>Welcome to 0xMart! Please complete your merchant onboarding by clicking the link below:</p>
-            <p><a href="${onboardingLink}" style="background-color: #4CAF50; color: white; padding: 14px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">Complete Onboarding</a></p>
-            <p>Or copy and paste this link: ${onboardingLink}</p>
-            <p><em>This link will expire in 7 days.</em></p>
-            <p>If you have any questions, please contact our support team.</p>
-            <p>Best regards,<br>0xMart Team</p>
-          `,
-        };
-
-        await sgMail.send(simpleMsg);
-        this.logger.log(`✅ Simple merchant onboarding email sent to ${email}`);
         return;
       }
 
-      // Send templated email
+      // Format expiry date (e.g., "January 8, 2026")
+      const formattedExpiryDate = expiryDate.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+
       const msg = {
         to: email,
         from: { email: fromEmail, name: fromName },
@@ -452,15 +493,15 @@ export class EmailService {
         dynamicTemplateData: {
           company_name: companyName,
           onboarding_link: onboardingLink,
-          support_link:
-            this.configService.get<string>('sendgrid.supportLink') ||
-            'https://support.0xmart.com/help',
-          expiry_days: '7',
+          expiry_date: formattedExpiryDate,
+          support_link: supportLink,
         },
       };
 
       await sgMail.send(msg);
-      this.logger.log(`✅ Merchant onboarding email sent to ${email}`);
+      this.logger.log(
+        `✅ Merchant onboarding email sent to ${email} (${companyName})`,
+      );
     } catch (error) {
       this.logger.error(
         `❌ Failed to send merchant onboarding email: ${error.message}`,

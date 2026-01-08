@@ -45,4 +45,13 @@ export class SendOtpDto {
   @IsString()
   @IsOptional()
   referralCode?: string;
+
+  @ApiProperty({
+    example: '03AGdBq24PBCd...',
+    description: 'reCAPTCHA token from frontend (optional)',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  recaptchaToken?: string;
 }

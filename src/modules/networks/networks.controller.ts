@@ -23,6 +23,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('Networks')
 @Controller('networks')
@@ -43,7 +44,8 @@ export class NetworksController {
   }
 
   @Get('enabled')
-  @ApiOperation({ summary: 'Get only enabled networks' })
+  @Public()
+  @ApiOperation({ summary: 'Get only enabled networks (public endpoint)' })
   @ApiResponse({
     status: 200,
     description: 'Returns enabled network configurations',

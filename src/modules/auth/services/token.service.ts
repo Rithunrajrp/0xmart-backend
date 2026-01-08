@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import { JwtPayload } from '../strategies/jwt.strategy';
 import { UserRole } from '@prisma/client';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class TokenService {
@@ -14,6 +15,10 @@ export class TokenService {
   ) {}
 
   async generateTokens(userId: string, email: string | null, role: UserRole) {
+    // Add unique identifiers (jti) to prevent duplicate tokens
+    const accessTokenId = randomBytes(16).toString('hex');
+    const refreshTokenId = randomBytes(16).toString('hex');
+
     const payload: JwtPayload = {
       sub: userId,
       email,
@@ -21,16 +26,33 @@ export class TokenService {
     };
 
     const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(payload as any, {
-        secret: this.configService.get<string>('jwt.secret') ?? '',
-        expiresIn: this.configService.get<string>('jwt.expiresIn') ?? '30d',
-      } as any),
-      this.jwtService.signAsync(payload as any, {
-        secret: this.configService.get<string>('jwt.refreshSecret') ?? '',
-        expiresIn:
-          this.configService.get<string>('jwt.refreshExpiresIn') ?? '60d',
-      } as any),
+      this.jwtService.signAsync(
+        { ...payload, jti: accessTokenId } as any,
+        {
+          secret: this.configService.get<string>('jwt.secret') ?? '',
+          expiresIn: this.configService.get<string>('jwt.expiresIn') ?? '30d',
+        } as any,
+      ),
+      this.jwtService.signAsync(
+        { ...payload, jti: refreshTokenId } as any,
+        {
+          secret: this.configService.get<string>('jwt.refreshSecret') ?? '',
+          expiresIn:
+            this.configService.get<string>('jwt.refreshExpiresIn') ?? '60d',
+        } as any,
+      ),
     ]);
+
+    // Revoke all existing active sessions for this user to prevent unique constraint errors
+    await this.prisma.userSession.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: new Date(),
+      },
+    });
 
     // Store refresh token in database
     const expiresAt = new Date();

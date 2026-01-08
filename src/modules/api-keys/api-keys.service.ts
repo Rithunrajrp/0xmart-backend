@@ -98,6 +98,16 @@ export class ApiKeysService {
       webhookUrl?: string;
       supportedNetworks?: string[]; // Array of NetworkType values
       isTestnetMode?: boolean; // If true, uses testnet networks
+      usePersonalizedRecommendations?: boolean; // Enable personalized recommendations
+      recommendationConfig?: {
+        selectedProductIds?: string[];
+        selectedCategories?: string[];
+        minRating?: number;
+        maxPrice?: number;
+        minPrice?: number;
+        prioritizeInStock?: boolean;
+        prioritizeHighRated?: boolean;
+      };
     },
   ): Promise<{
     id: string;
@@ -196,8 +206,33 @@ export class ApiKeysService {
         billingResetAt: this.getNextBillingResetDate(),
         creationFeePaid: false, // Will be updated after payment
         isTestnetMode: options?.isTestnetMode || false,
+        usePersonalizedRecommendations:
+          options?.usePersonalizedRecommendations || false,
       },
     });
+
+    // Create recommendation config if enabled
+    if (
+      options?.usePersonalizedRecommendations &&
+      options?.recommendationConfig
+    ) {
+      await this.prisma.apiKeyRecommendationConfig.create({
+        data: {
+          apiKeyId: apiKeyRecord.id,
+          selectedProductIds:
+            options.recommendationConfig.selectedProductIds || [],
+          selectedCategories:
+            options.recommendationConfig.selectedCategories || [],
+          minRating: options.recommendationConfig.minRating,
+          maxPrice: options.recommendationConfig.maxPrice,
+          minPrice: options.recommendationConfig.minPrice,
+          prioritizeInStock:
+            options.recommendationConfig.prioritizeInStock ?? true,
+          prioritizeHighRated:
+            options.recommendationConfig.prioritizeHighRated ?? false,
+        },
+      });
+    }
 
     // Create audit log
     await this.prisma.auditLog.create({
@@ -317,6 +352,8 @@ export class ApiKeysService {
         billingResetAt: true,
         isTestnetMode: true,
         supportedNetworks: true,
+        usePersonalizedRecommendations: true,
+        recommendationConfig: true,
       },
     });
 
@@ -814,6 +851,69 @@ export class ApiKeysService {
     });
 
     return updated;
+  }
+
+  /**
+   * Update recommendation configuration for an API key
+   */
+  async updateRecommendationConfig(
+    userId: string,
+    apiKeyId: string,
+    config: {
+      selectedProductIds?: string[];
+      selectedCategories?: string[];
+      minRating?: number;
+      maxPrice?: number;
+      minPrice?: number;
+      prioritizeInStock?: boolean;
+      prioritizeHighRated?: boolean;
+    },
+  ) {
+    // Verify ownership
+    const apiKey = await this.prisma.apiKey.findFirst({
+      where: { id: apiKeyId, userId },
+    });
+
+    if (!apiKey) {
+      throw new NotFoundException('API key not found');
+    }
+
+    if (!apiKey.usePersonalizedRecommendations) {
+      throw new BadRequestException(
+        'Personalized recommendations are not enabled for this API key',
+      );
+    }
+
+    // Upsert recommendation config
+    const recommendationConfig =
+      await this.prisma.apiKeyRecommendationConfig.upsert({
+        where: { apiKeyId },
+        create: {
+          apiKeyId,
+          selectedProductIds: config.selectedProductIds || [],
+          selectedCategories: config.selectedCategories || [],
+          minRating: config.minRating,
+          maxPrice: config.maxPrice,
+          minPrice: config.minPrice,
+          prioritizeInStock: config.prioritizeInStock ?? true,
+          prioritizeHighRated: config.prioritizeHighRated ?? false,
+        },
+        update: {
+          selectedProductIds: config.selectedProductIds,
+          selectedCategories: config.selectedCategories,
+          minRating: config.minRating,
+          maxPrice: config.maxPrice,
+          minPrice: config.minPrice,
+          prioritizeInStock: config.prioritizeInStock,
+          prioritizeHighRated: config.prioritizeHighRated,
+        },
+      });
+
+    this.logger.log(
+      `Recommendation config updated for API key: ${apiKey.prefix}...`,
+    );
+
+    return recommendationConfig;
   }
 
   private getNextBillingResetDate(): Date {

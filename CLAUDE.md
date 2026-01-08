@@ -138,29 +138,72 @@ Environment-based config in `config/configuration.ts`. Key env vars:
 
 Swagger UI available at `/api/v1/docs` in non-production environments.
 
-## External API (402 Payment Protocol)
+## External API (402 Payment Protocol) - Smart Contract Payments
 
-The platform provides APIs for external developers to integrate product recommendations and payment processing:
+The platform provides APIs for external developers to integrate product recommendations and **smart contract-based payment processing**.
+
+### ⚠️ IMPORTANT: Payment Architecture Change
+
+As of the latest update, the platform uses **smart contract payments** instead of deposit addresses:
+
+- **Old:** Customer manually sends tokens to a generated deposit address
+- **New:** Customer's wallet invoked to call smart contract `payForProduct()` function
+
+**Benefits:**
+- Instant verification via blockchain events
+- Better UX (wallet popup instead of manual transfer)
+- Commission enforced by smart contract
+- Prevents double-spending
+- Easy integration (payment widget provided)
+
+**See:** `SMART_CONTRACT_DEPLOYMENT.md` and `docs/SMART_CONTRACT_PAYMENT_GUIDE.md` for full details.
 
 ### API Flow
 1. **Developer Onboarding** - Create API key with `api_key` and `api_secret` via `/api-keys`
 2. **Get Recommendations** - `POST /api/v1/ads/get-recommendations` with customer preferences
 3. **Track Ad Click** - `POST /api/v1/ads/open` with click token
 4. **Initiate Payment** - `POST /api/v1/payment/initiate` with customer phone/email
-5. **Customer Verification** - Phone/email OTP verification, address collection
-6. **Network Selection** - Get deposit address for selected blockchain
-7. **Payment Confirmation** - `POST /api/v1/payment/confirm` with txHash
+5. **Customer Verification** - Phone/email OTP verification (optional for external purchases), address collection
+6. **Network Selection** - `POST /api/v1/payment/select-network` returns **smart contract parameters** (contract address, ABI, function params)
+7. **Wallet Invocation** - Use **0xMart Payment Widget** or custom Web3 code to invoke customer's wallet
+8. **Payment Execution** - Customer approves in wallet → Smart contract `payForProduct()` called
+9. **Payment Confirmation** - `POST /api/v1/payment/confirm` with txHash → Backend verifies `PaymentProcessed` event
+
+### Payment Widget (Recommended Integration)
+
+External developers can integrate crypto payments with **3 lines of code** using the 0xMart Payment Widget:
+
+```html
+<script src="https://api.0xmart.com/widget/0xmart-payment.js"></script>
+<script>
+  OxMartPayment.pay({
+    apiKey: 'your_api_key',
+    apiSecret: 'your_api_secret',
+    orderId: 'order_123',
+    onSuccess: (txHash) => console.log('Payment successful!'),
+    onError: (error) => console.error('Payment failed:', error)
+  });
+</script>
+```
+
+**What the widget does:**
+1. Fetches smart contract parameters from your backend
+2. Connects to customer's Web3 wallet (MetaMask, etc.)
+3. Switches to correct network if needed
+4. Approves token spending (if needed)
+5. Calls `payForProduct()` smart contract function
+6. Waits for blockchain confirmation
+7. Notifies your backend with transaction hash
+
+**Widget location:** `public/widget/0xmart-payment.js`
+**Live demo:** `public/widget/example.html`
 
 ### Customer Verification Cases
-- Phone+Email match existing customer → May skip verification if recent
+- Phone+Email match existing customer → Skip OTP (external purchases don't require account access)
 - Phone exists with different email → Error: `EMAIL_MISMATCH`
-- New customer → Full OTP verification required
+- New customer → Address collection only (no OTP for external purchases)
 
-### Deposit Address Rules
-- Reuse address if customer verified within 30 days
-- Generate new address if suspicious behavior detected
-- Addresses expire after 24 hours of inactivity
-- Keep using address if pending balance exists
+**Note:** OTP verification is only required when customers access their 0xMart account funds, not for external purchases.
 
 ### Webhook Events
 Developers receive webhooks for: `PAYMENT_INITIATED`, `PAYMENT_DETECTED`, `PAYMENT_CONFIRMED`, `PAYMENT_FAILED`, `ORDER_SHIPPED`, `ORDER_DELIVERED`

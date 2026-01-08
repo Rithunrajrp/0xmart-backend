@@ -32,6 +32,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     TokenService,
     JwtStrategy,
   ],
-  exports: [AuthService, TokenService, EmailService],
+  exports: [AuthService, TokenService, EmailService, OtpService, TwilioService],
 })
 export class AuthModule {}

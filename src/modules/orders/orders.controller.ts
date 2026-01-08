@@ -106,4 +106,13 @@ export class OrdersController {
   ) {
     return this.ordersService.updateOrderStatus(id, updateStatusDto);
   }
+
+  @Get('admin/stats')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get order statistics (Admin only)' })
+  @ApiResponse({ status: 200 })
+  getStats() {
+    return this.ordersService.getOrderStats();
+  }
 }

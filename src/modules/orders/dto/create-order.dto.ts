@@ -39,4 +39,8 @@ export class CreateOrderDto {
   @ApiProperty({ required: false })
   @IsOptional()
   shippingAddress?: any;
+
+  @ApiProperty({ required: false, description: 'Additional metadata (e.g., transaction hash, network)' })
+  @IsOptional()
+  metadata?: any;
 }

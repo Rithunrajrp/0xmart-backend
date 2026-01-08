@@ -1,0 +1,10 @@
+{
+  "contractName": "PaymentProcessor",
+  "network": "optimismSepolia",
+  "chainId": "11155420",
+  "contractAddress": "0x78B3EeCea6a1f17a5552566619F3570C58C87930",
+  "hotWalletAddress": "0x0b8338c719E6b9627E27b9D984d72b5278b17F10",
+  "deployer": "0x0b8338c719E6b9627E27b9D984d72b5278b17F10",
+  "deploymentTime": "2025-12-29T10:35:05.570Z",
+  "blockNumber": 37600982
+}

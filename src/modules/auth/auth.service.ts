@@ -72,9 +72,8 @@ export class AuthService {
     }
     // Both are new - allow registration
 
-    // Generate separate OTPs for email and phone
+    // Generate OTP for email
     const emailOtp = this.otpService.storeOtp(normalizedEmail, 'email');
-    const phoneOtp = this.otpService.storeOtp(fullPhoneNumber, 'phone');
 
     // Extract first name from email or use default
     const firstName = email.split('@')[0];
@@ -82,12 +81,14 @@ export class AuthService {
     // Send OTP via SendGrid email
     await this.emailService.sendOtpEmail(email, emailOtp, firstName);
 
-    // Send SMS OTP (in development, just log it)
-    if (this.twilioService.isEnabled()) {
-      this.twilioService.sendOtp(countryCode, phoneNumber, phoneOtp);
-    } else {
-      // Development mode - log phone OTP
-      this.logger.log(`Phone OTP for ${fullPhoneNumber}: ${phoneOtp}`);
+    // Send SMS OTP via Twilio Verify (Twilio generates and manages the OTP)
+    const smsSent = await this.twilioService.sendOtp(countryCode, phoneNumber);
+
+    // If SMS failed or Twilio is not enabled, use dev mode with logged OTP
+    if (!smsSent) {
+      const phoneOtp = this.otpService.storeOtp(fullPhoneNumber, 'phone');
+      this.logger.log(`[DEV MODE] Phone OTP for ${fullPhoneNumber}: ${phoneOtp}`);
+      this.logger.log(`[DEV MODE] Use this OTP for phone verification in development/testing`);
     }
 
     this.logger.log(`OTPs sent to ${email} and ${fullPhoneNumber}`);
@@ -118,12 +119,29 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired email OTP');
     }
 
-    // Verify phone OTP
-    const isPhoneOtpValid = this.otpService.verifyOtp(
-      fullPhoneNumber,
-      phoneOtp,
-      'phone',
-    );
+    // Verify phone OTP via Twilio Verify or local OTP service
+    let isPhoneOtpValid = false;
+    if (this.twilioService.isEnabled()) {
+      // Try Twilio Verify API first
+      isPhoneOtpValid = await this.twilioService.verifyOtp(countryCode, phoneNumber, phoneOtp);
+
+      // If Twilio verification failed, fall back to local OTP (for test account scenarios)
+      if (!isPhoneOtpValid) {
+        this.logger.log(`[DEV MODE] Twilio verification failed, trying local OTP for ${fullPhoneNumber}`);
+        isPhoneOtpValid = this.otpService.verifyOtp(
+          fullPhoneNumber,
+          phoneOtp,
+          'phone',
+        );
+      }
+    } else {
+      // Development mode - use local OTP service
+      isPhoneOtpValid = this.otpService.verifyOtp(
+        fullPhoneNumber,
+        phoneOtp,
+        'phone',
+      );
+    }
 
     if (!isPhoneOtpValid) {
       throw new BadRequestException('Invalid or expired phone OTP');
@@ -132,6 +150,7 @@ export class AuthService {
     // Find or create user
     let user = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
+      include: { sellerProfile: true },
     });
 
     if (!user) {
@@ -151,9 +170,20 @@ export class AuthService {
           status: 'ACTIVE',
           referralCode,
         },
+        include: { sellerProfile: true },
       });
 
       this.logger.log(`New user created: ${user.id} with role: ${userRole}`);
+    }
+
+    // Check if user has a seller profile and update role to MERCHANT if needed
+    if (user.sellerProfile && user.role === 'USER') {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: { role: 'MERCHANT' },
+        include: { sellerProfile: true },
+      });
+      this.logger.log(`User ${user.id} role updated to MERCHANT (has seller profile)`);
     }
 
     // Update last login
@@ -278,5 +308,95 @@ export class AuthService {
         message: 'Invalid referral code',
       };
     }
+  }
+
+  /**
+   * Check merchant account status
+   */
+  async checkMerchantStatus(dto: { email: string; countryCode: string; phoneNumber: string }) {
+    const normalizedEmail = dto.email.toLowerCase().trim();
+    const fullPhoneNumber = `${dto.countryCode}${dto.phoneNumber}`;
+
+    // Find seller by email and phone
+    const seller = await this.prisma.seller.findFirst({
+      where: {
+        email: normalizedEmail,
+        phone: fullPhoneNumber,
+      },
+      select: {
+        id: true,
+        status: true,
+        userId: true,
+      },
+    });
+
+    if (!seller) {
+      return {
+        exists: false,
+      };
+    }
+
+    return {
+      exists: true,
+      status: seller.status,
+    };
+  }
+
+  /**
+   * Verify merchant onboarding token and update status to PENDING_VERIFICATION
+   */
+  async verifyMerchantOnboardingToken(dto: { email: string; countryCode: string; phoneNumber: string; token: string }) {
+    const normalizedEmail = dto.email.toLowerCase().trim();
+    const fullPhoneNumber = `${dto.countryCode}${dto.phoneNumber}`;
+
+    // Find seller by email and phone
+    const seller = await this.prisma.seller.findFirst({
+      where: {
+        email: normalizedEmail,
+        phone: fullPhoneNumber,
+      },
+      select: {
+        id: true,
+        status: true,
+        onboardingToken: true,
+        onboardingTokenExpiry: true,
+      },
+    });
+
+    if (!seller) {
+      throw new BadRequestException('Merchant account not found');
+    }
+
+    // Check if status is PENDING_ONBOARDING
+    if (seller.status !== 'PENDING_ONBOARDING') {
+      throw new BadRequestException('Merchant account is not pending onboarding');
+    }
+
+    // Verify token
+    if (seller.onboardingToken !== dto.token) {
+      throw new BadRequestException('Invalid onboarding token');
+    }
+
+    // Check if token is expired
+    if (!seller.onboardingTokenExpiry || seller.onboardingTokenExpiry < new Date()) {
+      throw new BadRequestException('Onboarding token has expired');
+    }
+
+    // Update seller status to PENDING_VERIFICATION and clear the token
+    await this.prisma.seller.update({
+      where: { id: seller.id },
+      data: {
+        status: 'PENDING_VERIFICATION',
+        onboardingToken: null,
+        onboardingTokenExpiry: null,
+      },
+    });
+
+    this.logger.log(`Merchant ${seller.id} (${normalizedEmail}) verified onboarding token, status updated to PENDING_VERIFICATION`);
+
+    return {
+      success: true,
+      message: 'Onboarding token verified successfully',
+    };
   }
 }

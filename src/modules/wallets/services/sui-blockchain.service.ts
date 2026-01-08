@@ -245,18 +245,33 @@ export class SuiBlockchainService {
       const balanceChanges = tx.balanceChanges || [];
 
       if (balanceChanges.length >= 2) {
-        // Find the sender (negative balance change)
-        const sender = balanceChanges.find((bc) => BigInt(bc.amount) < 0);
-        // Find the recipient (positive balance change)
-        const recipient = balanceChanges.find((bc) => BigInt(bc.amount) > 0);
+        // Group balance changes by coin type
+        const balanceChangesByCoin: Record<string, any[]> = {};
+        balanceChanges.forEach((bc) => {
+          if (!balanceChangesByCoin[bc.coinType]) {
+            balanceChangesByCoin[bc.coinType] = [];
+          }
+          balanceChangesByCoin[bc.coinType].push(bc);
+        });
 
-        if (sender && recipient && sender.coinType === recipient.coinType) {
-          return {
-            from: sender.owner.AddressOwner || sender.owner,
-            to: recipient.owner.AddressOwner || recipient.owner,
-            amount: recipient.amount,
-            coinType: recipient.coinType,
-          };
+        // Find transfers (exclude gas coin 0x2::sui::SUI)
+        for (const coinType of Object.keys(balanceChangesByCoin)) {
+          // Skip SUI gas payments
+          if (coinType === '0x2::sui::SUI') continue;
+
+          const changes = balanceChangesByCoin[coinType];
+          const negative = changes.filter((bc) => BigInt(bc.amount) < 0);
+          const positive = changes.filter((bc) => BigInt(bc.amount) > 0);
+
+          // Simple transfer: one sender, one recipient
+          if (negative.length === 1 && positive.length === 1) {
+            return {
+              from: negative[0].owner.AddressOwner || negative[0].owner,
+              to: positive[0].owner.AddressOwner || positive[0].owner,
+              amount: positive[0].amount,
+              coinType: coinType,
+            };
+          }
         }
       }
 

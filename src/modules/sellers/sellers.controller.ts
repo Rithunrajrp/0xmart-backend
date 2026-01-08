@@ -1,19 +1,16 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiHeader,
   ApiQuery,
 } from '@nestjs/swagger';
 import { SellersService } from './sellers.service';
-import { ApiKeyGuard } from '../api-keys/guards/api-key.guard';
 import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('sellers')
 @Controller('sellers')
 @Public()
-@UseGuards(ApiKeyGuard)
 export class SellersController {
   constructor(private readonly sellersService: SellersService) {}
 
@@ -22,7 +19,6 @@ export class SellersController {
     summary: 'List verified sellers',
     description: 'Get list of verified sellers/companies',
   })
-  @ApiHeader({ name: 'X-API-Key', description: 'API Key', required: true })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'country', required: false, type: String })
@@ -86,7 +82,6 @@ export class SellersController {
     summary: 'Get seller details',
     description: 'Get public information about a seller/company',
   })
-  @ApiHeader({ name: 'X-API-Key', description: 'API Key', required: true })
   @ApiResponse({
     status: 200,
     description: 'Seller details',
@@ -125,7 +120,6 @@ export class SellersController {
     summary: 'Get seller products',
     description: 'Get products from a specific seller',
   })
-  @ApiHeader({ name: 'X-API-Key', description: 'API Key', required: true })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'category', required: false, type: String })

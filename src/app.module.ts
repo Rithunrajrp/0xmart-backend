@@ -31,6 +31,10 @@ import { AddressesModule } from './modules/addresses/addresses.module';
 import { UserManagementModule } from './modules/user-management/user-management.module';
 import { RewardsModule } from './modules/rewards/rewards.module';
 import { NetworksModule } from './modules/networks/networks.module';
+import { SupportModule } from './modules/support/support.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
+import { UploadModule } from './modules/upload/upload.module';
+import { SettingsModule } from './modules/settings/settings.module';
 
 @Module({
   imports: [
@@ -76,6 +80,14 @@ import { NetworksModule } from './modules/networks/networks.module';
     RewardsModule,
     // Network configuration management
     NetworksModule,
+    // Support and help functionality
+    SupportModule,
+    // Product reviews
+    ReviewsModule,
+    // File upload to S3
+    UploadModule,
+    // System settings
+    SettingsModule,
   ],
   providers: [
     {

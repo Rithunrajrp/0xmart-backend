@@ -26,13 +26,26 @@ export default () => ({
     kycRejectedTemplateId: process.env.SENDGRID_KYC_REJECTED_TEMPLATE_ID,
     orderConfirmedTemplateId: process.env.SENDGRID_ORDER_CONFIRMED_TEMPLATE_ID,
     orderShippedTemplateId: process.env.SENDGRID_ORDER_SHIPPED_TEMPLATE_ID,
+    merchantOnboardingTemplateId:
+      process.env.SENDGRID_MERCHANT_ONBOARDING_TEMPLATE_ID,
     supportLink: process.env.SUPPORT_LINK || 'https://support.0xmart.com/help',
   },
   twilio: {
-    accountSid: process.env.TWILIO_ACCOUNT_SID,
-    authToken: process.env.TWILIO_AUTH_TOKEN,
-    phoneNumber: process.env.TWILIO_PHONE_NUMBER,
-    verifyServiceSid: process.env.TWILIO_VERIFY_SERVICE_SID, // Add this
+    // Use test credentials in development, production credentials in production
+    accountSid:
+      process.env.NODE_ENV === 'development'
+        ? process.env.TWILIO_TEST_ACCOUNT_SID || process.env.TWILIO_ACCOUNT_SID
+        : process.env.TWILIO_ACCOUNT_SID,
+    authToken:
+      process.env.NODE_ENV === 'development'
+        ? process.env.TWILIO_TEST_AUTH_TOKEN || process.env.TWILIO_AUTH_TOKEN
+        : process.env.TWILIO_AUTH_TOKEN,
+    verifyServiceSid:
+      process.env.NODE_ENV === 'development'
+        ? process.env.TWILIO_TEST_VERIFY_SERVICE_SID ||
+          process.env.TWILIO_VERIFY_SERVICE_SID
+        : process.env.TWILIO_VERIFY_SERVICE_SID,
+    phoneNumber: process.env.TWILIO_PHONE_NUMBER, // Optional - not needed for Verify API
   },
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY,
@@ -118,5 +131,8 @@ export default () => ({
   throttle: {
     ttl: parseInt(process.env.THROTTLE_TTL || '60', 10) || 60,
     limit: parseInt(process.env.THROTTLE_LIMIT || '10', 10) || 10,
+  },
+  recaptcha: {
+    secretKey: process.env.RECAPTCHA_SECRET_KEY,
   },
 });

@@ -37,14 +37,18 @@ export class CreateProductDto {
   @IsOptional()
   description?: string;
 
-  @ApiProperty({ example: 'https://example.com/image.jpg' })
+  @ApiProperty({
+    example: 'https://example.com/image.jpg',
+    description: 'Product image URL (can be from S3 or external CDN)',
+    required: false
+  })
   @IsString()
   @IsOptional()
   imageUrl?: string;
 
   @ApiProperty({
     example: ['https://example.com/image1.jpg', 'https://example.com/image2.jpg'],
-    description: 'Array of product image URLs (max 10)',
+    description: 'Array of product image URLs (max 10) - can be from S3 or external CDN',
     required: false
   })
   @IsArray()

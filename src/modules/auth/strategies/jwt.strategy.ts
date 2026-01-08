@@ -9,6 +9,7 @@ export interface JwtPayload {
   sub: string;
   email: string | null;
   role: UserRole;
+  jti?: string; // Optional JWT ID for uniqueness
 }
 
 @Injectable()

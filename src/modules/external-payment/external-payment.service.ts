@@ -23,6 +23,12 @@ import { AddressGeneratorService } from '../wallets/services/address-generator.s
 import { BlockchainService } from '../wallets/services/blockchain.service';
 import { NetworksService } from '../networks/networks.service';
 import { ethers } from 'ethers';
+import {
+  PAYMENT_PROCESSOR_ADDRESSES,
+  STABLECOIN_ADDRESSES,
+  PAYMENT_PROCESSOR_ABI,
+  ERC20_ABI,
+} from '../../common/constants/contracts';
 
 // Constants
 const OTP_EXPIRY_MINUTES = 10;
@@ -590,7 +596,7 @@ export class ExternalPaymentService {
   }
 
   /**
-   * Step 4: Select network and get deposit address
+   * Step 4: Select network and get payment details (smart contract or deposit address)
    */
   async selectNetwork(
     apiKeyId: string,
@@ -599,24 +605,50 @@ export class ExternalPaymentService {
   ): Promise<{
     success: boolean;
     payment: {
-      depositAddress: string;
+      contractAddress: string;
+      tokenAddress: string;
       amount: string;
+      amountWei: string;
       currency: string;
       network: string;
+      method: string;
+      params: {
+        orderId: string;
+        productId: string;
+        token: string;
+        amount: string;
+      };
+      abi: any[];
+      tokenAbi: any[];
+      estimatedGas: string;
       expiresAt: string;
-      qrData: string;
+      paymentType: 'SMART_CONTRACT';
     };
   }> {
     const order = await this.getOrderWithValidation(apiKeyId, orderId);
 
-    // Get or create deposit address for customer
-    const depositAddress = await this.getOrCreateDepositAddress(
-      order.customerId,
-      network,
-      order.stablecoinType,
-    );
+    // Get smart contract address for this network
+    const contractAddress = PAYMENT_PROCESSOR_ADDRESSES[network];
+    if (!contractAddress || contractAddress === '0x0000000000000000000000000000000000000000') {
+      throw new BadRequestException(
+        `Payment contract not deployed on ${network}. Please deploy the smart contract first or use a different network.`,
+      );
+    }
 
-    // Update order with network and deposit address
+    // Get token address for this network and stablecoin
+    const tokenAddress = STABLECOIN_ADDRESSES[network]?.[order.stablecoinType];
+    if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
+      throw new BadRequestException(
+        `${order.stablecoinType} not available on ${network}`,
+      );
+    }
+
+    // Convert amount to wei (smallest unit)
+    // Stablecoins typically use 6 decimals (USDT, USDC) or 18 decimals (DAI)
+    const decimals = order.stablecoinType === 'DAI' ? 18 : 6;
+    const amountWei = ethers.utils.parseUnits(order.total.toString(), decimals);
+
+    // Update order with network and contract details
     const paymentExpiresAt = new Date(
       Date.now() + PAYMENT_EXPIRY_HOURS * 60 * 60 * 1000,
     );
@@ -625,32 +657,34 @@ export class ExternalPaymentService {
       where: { id: orderId },
       data: {
         network,
-        depositAddressId: depositAddress.id,
-        depositAddress: depositAddress.address,
+        depositAddress: contractAddress, // Store contract address for reference
         expectedAmount: order.total,
         status: 'AWAITING_PAYMENT',
         paymentExpiresAt,
       },
     });
 
-    // Generate QR code data
-    const qrData = JSON.stringify({
-      address: depositAddress.address,
-      amount: order.total.toString(),
-      currency: order.stablecoinType,
-      network,
-      orderId: order.orderNumber,
-    });
-
     return {
       success: true,
       payment: {
-        depositAddress: depositAddress.address,
+        contractAddress,
+        tokenAddress,
         amount: order.total.toString(),
+        amountWei: amountWei.toString(),
         currency: order.stablecoinType,
         network,
+        method: 'payForProduct',
+        params: {
+          orderId: order.orderNumber,
+          productId: order.productId,
+          token: tokenAddress,
+          amount: amountWei.toString(),
+        },
+        abi: PAYMENT_PROCESSOR_ABI,
+        tokenAbi: ERC20_ABI,
+        estimatedGas: '200000', // Estimated gas limit
         expiresAt: paymentExpiresAt.toISOString(),
-        qrData,
+        paymentType: 'SMART_CONTRACT',
       },
     };
   }
@@ -814,13 +848,13 @@ export class ExternalPaymentService {
   }
 
   /**
-   * Verify payment on blockchain
+   * Verify smart contract payment on blockchain
    */
   private async verifyPaymentOnChain(
     txHash: string,
     network: NetworkType,
-    expectedRecipient: string,
-    expectedAmount: Decimal,
+    expectedContractAddress: string,
+    expectedOrderId: string,
   ): Promise<{ verified: boolean; reason?: string }> {
     try {
       // Only verify EVM networks for now
@@ -838,7 +872,7 @@ export class ExternalPaymentService {
         this.logger.warn(
           `Blockchain verification not implemented for ${network}. Skipping verification.`,
         );
-        return { verified: true }; // Auto-approve for non-EVM networks (TODO: implement)
+        return { verified: true }; // Auto-approve for non-EVM networks
       }
 
       // Get transaction receipt
@@ -861,20 +895,57 @@ export class ExternalPaymentService {
         };
       }
 
-      // Verify recipient address (case-insensitive comparison)
-      if (receipt.to?.toLowerCase() !== expectedRecipient.toLowerCase()) {
+      // Verify transaction was sent to correct contract
+      if (receipt.to?.toLowerCase() !== expectedContractAddress.toLowerCase()) {
         return {
           verified: false,
-          reason: `Transaction sent to wrong address. Expected: ${expectedRecipient}, Got: ${receipt.to}`,
+          reason: `Transaction sent to wrong contract. Expected: ${expectedContractAddress}, Got: ${receipt.to}`,
         };
       }
 
-      // For ERC20 token transfers (stablecoins), amount verification requires parsing logs
-      // For now, we verify the transaction succeeded and was sent to correct address
-      // TODO: Parse Transfer event logs to verify exact token amount
-      this.logger.log(
-        `Transaction verified. Amount validation via logs not yet implemented.`,
+      // Parse logs to verify PaymentProcessed event
+      const paymentProcessedEventSignature = ethers.utils.id(
+        'PaymentProcessed(string,address,address,uint256,uint256,address,uint256)',
       );
+
+      let paymentVerified = false;
+
+      for (const log of receipt.logs || []) {
+        if (log.topics[0] === paymentProcessedEventSignature) {
+          try {
+            // Decode the event
+            const iface = new ethers.utils.Interface(PAYMENT_PROCESSOR_ABI);
+            const decodedLog = iface.parseLog({
+              topics: log.topics,
+              data: log.data,
+            });
+
+            if (decodedLog && decodedLog.args) {
+              const eventOrderId = decodedLog.args.orderId;
+
+              // Verify order ID matches
+              if (eventOrderId === expectedOrderId) {
+                paymentVerified = true;
+                this.logger.log(
+                  `✅ PaymentProcessed event found for order ${expectedOrderId}`,
+                );
+                break;
+              }
+            }
+          } catch (error) {
+            this.logger.error(
+              `Failed to parse PaymentProcessed event: ${(error as Error).message}`,
+            );
+          }
+        }
+      }
+
+      if (!paymentVerified) {
+        return {
+          verified: false,
+          reason: `PaymentProcessed event not found for order ${expectedOrderId}`,
+        };
+      }
 
       this.logger.log(
         `✅ Payment verified on ${network}: ${txHash} -> ${receipt.to} (block ${receipt.blockNumber})`,
@@ -929,23 +1000,20 @@ export class ExternalPaymentService {
       throw new ConflictException('Transaction hash already used');
     }
 
-    // Get deposit address for this order
-    const depositAddress = order.depositAddressId
-      ? await this.prisma.externalDepositAddress.findUnique({
-          where: { id: order.depositAddressId },
-        })
-      : null;
-
-    if (!depositAddress) {
-      throw new BadRequestException('Deposit address not found for this order');
+    // Get smart contract address for this network
+    const contractAddress = PAYMENT_PROCESSOR_ADDRESSES[order.network!];
+    if (!contractAddress || contractAddress === '0x0000000000000000000000000000000000000000') {
+      throw new BadRequestException(
+        `Payment contract not deployed on ${order.network}`,
+      );
     }
 
-    // Verify payment on blockchain
+    // Verify payment on blockchain (smart contract event)
     const verification = await this.verifyPaymentOnChain(
       txHash,
       order.network!,
-      depositAddress.address,
-      order.total,
+      contractAddress,
+      order.orderNumber,
     );
 
     if (!verification.verified) {

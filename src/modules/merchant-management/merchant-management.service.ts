@@ -8,11 +8,15 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateMerchantDto } from './dto/create-merchant.dto';
 import { ApproveDocumentDto } from './dto/approve-document.dto';
 import { RejectDocumentDto } from './dto/reject-document.dto';
+import { EmailService } from '../auth/services/email.service';
 import { randomBytes } from 'crypto';
 
 @Injectable()
 export class MerchantManagementService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   /**
    * Create a new merchant with onboarding link (Super Admin only)
@@ -51,19 +55,19 @@ export class MerchantManagementService {
 
     // Create user and seller in a transaction
     const result = await this.prisma.$transaction(async (tx) => {
-      // Create user with MERCHANT role but SUSPENDED status (cannot login yet)
+      // Create user with MERCHANT role and ACTIVE status (can login)
       const user = await tx.user.create({
         data: {
           email: email.toLowerCase(),
           phoneNumber,
           countryCode,
-          role: 'USER', // Merchants are users with seller profile
-          status: 'SUSPENDED', // Cannot login until ACTIVE
+          role: 'MERCHANT', // Set role to MERCHANT for merchant accounts
+          status: 'ACTIVE', // Allow login immediately - user can access platform
           kycStatus: 'NOT_STARTED',
         },
       });
 
-      // Create seller profile with PENDING_ONBOARDING status
+      // Create seller profile with PENDING_ONBOARDING status (must complete onboarding)
       const seller = await tx.seller.create({
         data: {
           userId: user.id,
@@ -72,7 +76,7 @@ export class MerchantManagementService {
           sellerType: 'INDIVIDUAL', // REQUIRED field - default to INDIVIDUAL
           country: 'Unknown', // REQUIRED field - will be updated during onboarding
           phone: `${countryCode}${phoneNumber}`, // Store full phone with country code
-          status: 'PENDING_ONBOARDING',
+          status: 'PENDING_ONBOARDING', // Seller must complete onboarding to become ACTIVE
           onboardingToken,
           onboardingTokenExpiry,
           isInhouse: false, // External merchant
@@ -81,6 +85,22 @@ export class MerchantManagementService {
 
       return { user, seller, onboardingToken };
     });
+
+    // Send onboarding email - use merchant subdomain
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const merchantUrl = frontendUrl.replace('://', '://merchant.');
+    const onboardingLink = `${merchantUrl}/onboarding/${result.onboardingToken}`;
+    try {
+      await this.emailService.sendMerchantOnboardingEmail(
+        email,
+        companyName,
+        onboardingLink,
+        onboardingTokenExpiry,
+      );
+    } catch (error) {
+      // Log error but don't fail merchant creation if email fails
+      console.error('Failed to send merchant onboarding email:', error.message);
+    }
 
     return {
       id: result.seller.id,
@@ -92,7 +112,7 @@ export class MerchantManagementService {
       status: result.seller.status,
       onboardingToken: result.onboardingToken,
       onboardingTokenExpiry: result.seller.onboardingTokenExpiry,
-      onboardingLink: `${process.env.FRONTEND_URL}/merchant/onboarding/${result.onboardingToken}`,
+      onboardingLink,
     };
   }
 

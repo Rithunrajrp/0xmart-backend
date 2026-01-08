@@ -53,4 +53,24 @@ export class VerifyOtpDto {
   @IsString()
   @IsOptional()
   referralCode?: string;
+
+  @ApiProperty({
+    example: '03AGdBq24PBCd...',
+    description: 'reCAPTCHA token from frontend (optional)',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  recaptchaToken?: string;
+
+  @ApiProperty({
+    example: '123456',
+    description: '6-digit TOTP code from authenticator app (optional, for 2FA)',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @Length(6, 6)
+  @Matches(/^\d{6}$/, { message: 'TOTP token must be 6 digits' })
+  totpToken?: string;
 }

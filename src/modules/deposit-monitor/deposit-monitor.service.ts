@@ -17,154 +17,154 @@ export class DepositMonitorService {
   private readonly logger = new Logger(DepositMonitorService.name);
   private isMonitoring = false;
 
-  // ERC20 token addresses per network
+  // ERC20 token addresses per network (TESTNET for development)
   private readonly tokenAddresses: Record<
     NetworkType,
     Record<StablecoinType, TokenConfig>
   > = {
     ETHEREUM: {
       USDT: {
-        address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+        address: '0x7169D38820dfd117C3FA1f22a697dBA58d90BA06', // Sepolia USDT
         decimals: 6,
       },
       USDC: {
-        address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+        address: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', // Sepolia USDC
         decimals: 6,
       },
       DAI: {
-        address: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
+        address: '0x68194a729C2450ad26072b3D33ADaCbcef39D574', // Sepolia DAI
         decimals: 18,
       },
       BUSD: {
-        address: '0x4Fabb145d64652a948d72533023f6E7A623C7C53',
+        address: '0x0000000000000000000000000000000000000000',
         decimals: 18,
-      },
+      }, // Not available on testnet
     },
     POLYGON: {
       USDT: {
-        address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        address: '0xfe4F5145f6e09952a5ba9e956ED0C25e3Fa4c7F1', // Amoy USDT
         decimals: 6,
       },
       USDC: {
-        address: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
+        address: '0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582', // Amoy USDC (Circle official)
         decimals: 6,
       },
       DAI: {
-        address: '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063',
+        address: '0x001B3B4d0F3714Ca98ba10F6042DaEbF0B1B7b6F', // Amoy DAI
         decimals: 18,
       },
       BUSD: {
-        address: '0xdAb529f40E671A1D4bF91361c21bf9f0C9712ab7',
+        address: '0x0000000000000000000000000000000000000000',
         decimals: 18,
-      },
+      }, // Not available on testnet
     },
     BSC: {
       USDT: {
-        address: '0x55d398326f99059fF775485246999027B3197955',
+        address: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd', // BSC Testnet USDT
         decimals: 18,
       },
       USDC: {
-        address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+        address: '0x64544969ed7EBf5f083679233325356EbE738930', // BSC Testnet USDC
         decimals: 18,
       },
       DAI: {
-        address: '0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3',
+        address: '0x0000000000000000000000000000000000000000',
         decimals: 18,
-      },
+      }, // Not available on testnet
       BUSD: {
-        address: '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56',
+        address: '0x0000000000000000000000000000000000000000',
         decimals: 18,
-      },
+      }, // Not available on testnet
     },
     ARBITRUM: {
       USDT: {
-        address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+        address: '0xfd064a18f3bf249cf1f87fc203e90d8f650f2d63', // Arbitrum Sepolia USDT
         decimals: 6,
       },
       USDC: {
-        address: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
+        address: '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d', // Arbitrum Sepolia USDC
         decimals: 6,
       },
       DAI: {
-        address: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
+        address: '0x0000000000000000000000000000000000000000',
         decimals: 18,
-      },
+      }, // Not available on testnet
       BUSD: {
         address: '0x0000000000000000000000000000000000000000',
         decimals: 18,
-      }, // Not available
+      }, // Not available on testnet
     },
     OPTIMISM: {
       USDT: {
-        address: '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58',
+        address: '0x7E07E15D2a87A24492740D16f5bdF58c16db0c4E', // Optimism Sepolia USDT
         decimals: 6,
       },
       USDC: {
-        address: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607',
+        address: '0x5fd84259d66Cd46123540766Be93DFE6D43130D7', // Optimism Sepolia USDC
         decimals: 6,
       },
       DAI: {
-        address: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
+        address: '0x0000000000000000000000000000000000000000',
         decimals: 18,
-      },
+      }, // Not available on testnet
       BUSD: {
         address: '0x0000000000000000000000000000000000000000',
         decimals: 18,
-      }, // Not available
+      }, // Not available on testnet
     },
     AVALANCHE: {
       USDT: {
-        address: '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7',
+        address: '0x134Dc38AE8C853D1aa465dC00a76a52B2a7F29E5', // Fuji testnet USDT
         decimals: 6,
       },
       USDC: {
-        address: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',
+        address: '0x5425890298aed601595a70AB815c96711a31Bc65', // Fuji testnet USDC
         decimals: 6,
       },
       DAI: {
-        address: '0xd586E7F844cEa2F87f50152665BCbc2C279D8d70',
+        address: '0x51BC2DfB9D12d9dB50C855A5330fBA0faF761D15', // Fuji testnet DAI
         decimals: 18,
       },
       BUSD: {
         address: '0x0000000000000000000000000000000000000000',
         decimals: 18,
-      }, // Not available
+      }, // Not available on testnet
     },
     BASE: {
       USDT: {
-        address: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2',
+        address: '0x0000000000000000000000000000000000000000',
         decimals: 6,
-      },
+      }, // Not available on testnet
       USDC: {
-        address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+        address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // Base Sepolia USDC
         decimals: 6,
       },
       DAI: {
-        address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb',
+        address: '0x0000000000000000000000000000000000000000',
         decimals: 18,
-      },
+      }, // Not available on testnet
       BUSD: {
         address: '0x0000000000000000000000000000000000000000',
         decimals: 18,
-      }, // Not available
+      }, // Not available on testnet
     },
     SUI: {
       USDT: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 9,
-      }, // SUI uses different token standard
+        address: '0xf7152c05330a500cc732c2fedac336ab2dfc6df1edadfa966c7b57fe53c2c916::usdt::USDT',
+        decimals: 6,
+      }, // Sui Testnet USDT
       USDC: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 9,
-      },
+        address: '0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC',
+        decimals: 6,
+      }, // Sui Testnet USDC (Circle official)
       DAI: {
         address: '0x0000000000000000000000000000000000000000',
-        decimals: 9,
-      },
+        decimals: 18,
+      }, // DAI not available on Sui testnet
       BUSD: {
         address: '0x0000000000000000000000000000000000000000',
-        decimals: 9,
-      },
+        decimals: 18,
+      }, // BUSD not available on Sui testnet
     },
     TON: {
       USDT: {
@@ -324,25 +324,46 @@ export class DepositMonitorService {
       orderBy: { blockNumber: 'desc' },
     });
 
+    const currentBlock = await provider.getBlockNumber();
     const fromBlock = lastDeposit?.blockNumber
       ? Number(lastDeposit.blockNumber) + 1
-      : (await provider.getBlockNumber()) - 1000; // Last ~1000 blocks
+      : currentBlock - 1000; // Last ~1000 blocks
 
-    const toBlock = 'latest';
+    // Scan in chunks to avoid RPC limits (max 2048 blocks per request)
+    const CHUNK_SIZE = 2000;
+    const allLogs: ethers.providers.Log[] = [];
 
-    // Query transfer events to this address
-    const filter = {
-      address: tokenConfig.address,
-      topics: [
-        ethers.utils.id('Transfer(address,address,uint256)'),
-        null, // from (any address)
-        ethers.utils.hexZeroPad(depositAddress as BytesLike, 32), // to (our wallet)
-      ],
-      fromBlock,
-      toBlock,
-    };
+    let startBlock = fromBlock;
+    while (startBlock <= currentBlock) {
+      const endBlock = Math.min(startBlock + CHUNK_SIZE - 1, currentBlock);
 
-    const logs = await provider.getLogs(filter);
+      // Query transfer events to this address
+      // Normalize address to lowercase for event filtering
+      const normalizedAddress = depositAddress.toLowerCase();
+      const filter = {
+        address: tokenConfig.address,
+        topics: [
+          ethers.utils.id('Transfer(address,address,uint256)'),
+          null, // from (any address)
+          ethers.utils.hexZeroPad(normalizedAddress as BytesLike, 32), // to (our wallet)
+        ],
+        fromBlock: startBlock,
+        toBlock: endBlock,
+      };
+
+      try {
+        const logs = await provider.getLogs(filter);
+        allLogs.push(...logs);
+      } catch (error) {
+        this.logger.error(
+          `Error fetching logs for blocks ${startBlock}-${endBlock}: ${error.message}`,
+        );
+      }
+
+      startBlock = endBlock + 1;
+    }
+
+    const logs = allLogs;
 
     this.logger.debug(
       `Found ${logs.length} transfer events for wallet ${depositAddress} on ${network}`,
@@ -620,6 +641,90 @@ export class DepositMonitorService {
     await this.scanForNewDeposits();
     await this.updatePendingDeposits();
     return { success: true, message: 'Scan completed' };
+  }
+
+  // Scan a specific wallet for deposits
+  async scanSingleWallet(walletId: string) {
+    this.logger.log(`Manual scan triggered for wallet ${walletId}`);
+
+    const wallet = await this.prisma.wallet.findUnique({
+      where: { id: walletId },
+      select: {
+        id: true,
+        userId: true,
+        depositAddress: true,
+        stablecoinType: true,
+        network: true,
+        balance: true,
+      },
+    });
+
+    if (!wallet) {
+      throw new Error('Wallet not found');
+    }
+
+    const balanceBefore = wallet.balance;
+
+    // Check for new deposits
+    await this.checkWalletForDeposits(wallet);
+
+    // Check pending deposits for this wallet
+    const pendingDeposits = await this.prisma.deposit.findMany({
+      where: {
+        walletId,
+        status: TransactionStatus.PENDING,
+      },
+      include: {
+        wallet: {
+          include: {
+            user: true,
+          },
+        },
+      },
+    });
+
+    for (const deposit of pendingDeposits) {
+      try {
+        await this.updateDepositConfirmations(deposit.id);
+      } catch (error) {
+        this.logger.error(
+          `Error updating deposit ${deposit.id}: ${error.message}`,
+        );
+      }
+    }
+
+    // Get updated wallet balance
+    const updatedWallet = await this.prisma.wallet.findUnique({
+      where: { id: walletId },
+    });
+
+    if (!updatedWallet) {
+      throw new Error('Wallet not found after scan');
+    }
+
+    const balanceAfter = updatedWallet.balance;
+    const hasNewDeposits = !balanceBefore.equals(balanceAfter);
+
+    // Count new deposits found
+    const newDepositsCount = await this.prisma.deposit.count({
+      where: {
+        walletId,
+        createdAt: {
+          gte: new Date(Date.now() - 60000), // Last minute
+        },
+      },
+    });
+
+    return {
+      success: true,
+      hasNewDeposits,
+      newDepositsCount,
+      balanceBefore: balanceBefore.toString(),
+      balanceAfter: balanceAfter.toString(),
+      message: hasNewDeposits
+        ? `Found ${newDepositsCount} new deposit(s)`
+        : 'No new deposits found',
+    };
   }
 
   async getDepositStatus(txHash: string) {
@@ -919,47 +1024,75 @@ export class DepositMonitorService {
           continue; // Already processed
         }
 
-        // For TON, we need to check if this is a jetton transfer
-        // This requires parsing the transaction message
-        // For now, check native TON transfers (simplified)
-
+        // Skip if transaction is not to our wallet
         if (!tx.to || tx.to !== depositAddress) {
-          continue; // Not to our wallet
-        }
-
-        if (!tx.value || tx.value === '0') {
-          continue; // No value transferred
-        }
-
-        // Convert nanotons to TON
-        const amountDecimal = new Decimal(tx.value).div(1e9);
-
-        // Get last processed block for this wallet
-        const lastDeposit = await this.prisma.deposit.findFirst({
-          where: { walletId },
-          orderBy: { blockNumber: 'desc' },
-        });
-
-        // Skip if this transaction is older than last processed
-        if (lastDeposit && tx.timestamp <= Number(lastDeposit.blockNumber)) {
           continue;
         }
 
-        // Create deposit record
-        await this.createDeposit({
-          walletId,
-          userId,
-          txHash: tx.hash,
-          fromAddress: tx.from || 'unknown',
-          amount: amountDecimal,
-          network: 'TON',
-          stablecoinType,
-          blockNumber: BigInt(tx.timestamp),
-        });
-
-        this.logger.log(
-          `New TON deposit detected: ${amountDecimal.toString()} TON to wallet ${depositAddress} (tx: ${tx.hash})`,
+        // Try to parse as jetton transfer first (for USDT/USDC)
+        const jettonTransfer = await tonService.parseJettonTransfer(
+          tx.hash,
+          depositAddress,
         );
+
+        if (jettonTransfer) {
+          // This is a jetton transfer (USDT/USDC/etc)
+          // Convert amount based on token decimals
+          const amountDecimal = new Decimal(jettonTransfer.amount).div(
+            Math.pow(10, tokenConfig.decimals),
+          );
+
+          // Create deposit record
+          await this.createDeposit({
+            walletId,
+            userId,
+            txHash: tx.hash,
+            fromAddress: jettonTransfer.from,
+            amount: amountDecimal,
+            network: 'TON',
+            stablecoinType,
+            blockNumber: BigInt(tx.timestamp),
+          });
+
+          this.logger.log(
+            `New TON jetton deposit detected: ${amountDecimal.toString()} ${stablecoinType} to wallet ${depositAddress} (tx: ${tx.hash})`,
+          );
+          continue;
+        }
+
+        // Fallback: Check native TON transfers
+        // (Only if token type is TON native coin, not USDT/USDC)
+        if (tx.value && tx.value !== '0') {
+          // Convert nanotons to TON
+          const amountDecimal = new Decimal(tx.value).div(1e9);
+
+          // Get last processed block for this wallet
+          const lastDeposit = await this.prisma.deposit.findFirst({
+            where: { walletId },
+            orderBy: { blockNumber: 'desc' },
+          });
+
+          // Skip if this transaction is older than last processed
+          if (lastDeposit && tx.timestamp <= Number(lastDeposit.blockNumber)) {
+            continue;
+          }
+
+          // Create deposit record for native TON
+          await this.createDeposit({
+            walletId,
+            userId,
+            txHash: tx.hash,
+            fromAddress: tx.from || 'unknown',
+            amount: amountDecimal,
+            network: 'TON',
+            stablecoinType,
+            blockNumber: BigInt(tx.timestamp),
+          });
+
+          this.logger.log(
+            `New TON deposit detected: ${amountDecimal.toString()} TON to wallet ${depositAddress} (tx: ${tx.hash})`,
+          );
+        }
       }
     } catch (error) {
       this.logger.error(

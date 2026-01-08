@@ -104,6 +104,7 @@ export class SellersService {
         name: p.name,
         shortDescription: p.shortDescription,
         imageUrl: p.imageUrl,
+        images: p.images, // Add images array
         category: p.category,
         brand: p.brand,
         rating: p.rating.toString(),
