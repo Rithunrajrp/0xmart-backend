@@ -57,3 +57,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
 NUL
+
+# Test files with credentials
+test-twilio.md
+test-*.md
