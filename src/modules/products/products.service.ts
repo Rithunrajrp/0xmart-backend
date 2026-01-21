@@ -15,8 +15,28 @@ import { Decimal } from '@prisma/client/runtime/library';
 @Injectable()
 export class ProductsService {
   private readonly logger = new Logger(ProductsService.name);
+  private readonly PLATFORM_MARKUP = 1.20; // 20% markup
 
   constructor(private prisma: PrismaService) {}
+
+  /**
+   * Transform product prices to include platform markup
+   * merchantPrice (stored in DB) -> platformPrice (shown to customers)
+   */
+  private transformProductPrices(product: any) {
+    if (product.prices && Array.isArray(product.prices)) {
+      return {
+        ...product,
+        prices: product.prices.map((p: any) => ({
+          ...p,
+          merchantPrice: p.price, // Original merchant price
+          price: new Decimal(p.price).mul(this.PLATFORM_MARKUP).toFixed(2), // Platform price (20% markup)
+          platformPrice: new Decimal(p.price).mul(this.PLATFORM_MARKUP).toFixed(2), // Explicit platform price
+        })),
+      };
+    }
+    return product;
+  }
 
   async create(createProductDto: CreateProductDto) {
     const { prices, sellerId, ...productData } = createProductDto;
@@ -25,6 +45,8 @@ export class ProductsService {
       data: {
         ...productData,
         status: ProductStatus.ACTIVE,
+        rating: new Decimal(0),
+        totalReviews: 0,
         seller: {
           connect: { id: sellerId },
         },
@@ -48,10 +70,11 @@ export class ProductsService {
   async findAll(filters?: {
     status?: ProductStatus;
     category?: string;
+    country?: string;
     page?: number;
     limit?: number;
   }) {
-    const { status, category, page = 1, limit = 20 } = filters || {};
+    const { status, category, country, page = 1, limit = 20 } = filters || {};
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -60,6 +83,21 @@ export class ProductsService {
     where.status = status || ProductStatus.ACTIVE;
 
     if (category) where.category = category;
+
+    // Filter by available countries
+    if (country) {
+      // Show products that either:
+      // 1. Are available worldwide (empty array)
+      // 2. Include the requested country
+      where.OR = [
+        { availableCountries: { equals: [] } },
+        { availableCountries: { has: country } },
+      ];
+    } else {
+      // When no country specified, only show worldwide products
+      // This hides country-restricted products from general listings
+      where.availableCountries = { equals: [] };
+    }
 
     const [products, total] = await Promise.all([
       this.prisma.product.findMany({
@@ -86,21 +124,24 @@ export class ProductsService {
       this.prisma.product.count({ where }),
     ]);
 
-    // Transform seller data to match frontend expectations
-    const transformedProducts = products.map((product) => ({
-      ...product,
-      seller: product.seller
-        ? {
-            id: product.seller.id,
-            name: product.seller.companyName,
-            tradingName: product.seller.tradingName,
-            isVerified: !!product.seller.verifiedAt,
-            rating: product.seller.rating?.toString(),
-            logo: product.seller.logo,
-            isInhouse: product.seller.isInhouse,
-          }
-        : null,
-    }));
+    // Transform seller data and prices to match frontend expectations
+    const transformedProducts = products.map((product) => {
+      const withPlatformPrices = this.transformProductPrices(product);
+      return {
+        ...withPlatformPrices,
+        seller: product.seller
+          ? {
+              id: product.seller.id,
+              name: product.seller.companyName,
+              tradingName: product.seller.tradingName,
+              isVerified: !!product.seller.verifiedAt,
+              rating: product.seller.rating?.toString(),
+              logo: product.seller.logo,
+              isInhouse: product.seller.isInhouse,
+            }
+          : null,
+      };
+    });
 
     return {
       products: transformedProducts,
@@ -139,10 +180,12 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    // Transform seller data to match frontend expectations
+    // Transform seller data and prices to match frontend expectations
+    const withPlatformPrices = this.transformProductPrices(product);
+
     if (product.seller) {
       const transformedProduct = {
-        ...product,
+        ...withPlatformPrices,
         seller: {
           id: product.seller.id,
           name: product.seller.companyName,
@@ -156,7 +199,7 @@ export class ProductsService {
       return transformedProduct;
     }
 
-    return product;
+    return withPlatformPrices;
   }
 
   async update(id: string, updateProductDto: UpdateProductDto) {
@@ -265,7 +308,7 @@ export class ProductsService {
     return categories.map((p) => p.category).filter((c) => c !== null);
   }
 
-  async searchProducts(query: string, filters?: { category?: string }) {
+  async searchProducts(query: string, filters?: { category?: string; country?: string }) {
     const where: any = {
       status: ProductStatus.ACTIVE,
       OR: [
@@ -277,6 +320,24 @@ export class ProductsService {
 
     if (filters?.category) {
       where.category = filters.category;
+    }
+
+    // Filter by available countries (same logic as findAll)
+    if (filters?.country) {
+      // Show products that either:
+      // 1. Are available worldwide (empty array)
+      // 2. Include the requested country
+      where.AND = [
+        {
+          OR: [
+            { availableCountries: { equals: [] } },
+            { availableCountries: { has: filters.country } },
+          ],
+        },
+      ];
+    } else {
+      // When no country specified, only show worldwide products
+      where.availableCountries = { equals: [] };
     }
 
     const products = await this.prisma.product.findMany({
@@ -298,21 +359,24 @@ export class ProductsService {
       take: 20,
     });
 
-    // Transform seller data to match frontend expectations
-    return products.map((product) => ({
-      ...product,
-      seller: product.seller
-        ? {
-            id: product.seller.id,
-            name: product.seller.companyName,
-            tradingName: product.seller.tradingName,
-            isVerified: !!product.seller.verifiedAt,
-            rating: product.seller.rating?.toString(),
-            logo: product.seller.logo,
-            isInhouse: product.seller.isInhouse,
-          }
-        : null,
-    }));
+    // Transform seller data and prices to match frontend expectations
+    return products.map((product) => {
+      const withPlatformPrices = this.transformProductPrices(product);
+      return {
+        ...withPlatformPrices,
+        seller: product.seller
+          ? {
+              id: product.seller.id,
+              name: product.seller.companyName,
+              tradingName: product.seller.tradingName,
+              isVerified: !!product.seller.verifiedAt,
+              rating: product.seller.rating?.toString(),
+              logo: product.seller.logo,
+              isInhouse: product.seller.isInhouse,
+            }
+          : null,
+      };
+    });
   }
 
   // ==================== Product Variant Methods ====================

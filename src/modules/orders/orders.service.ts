@@ -8,6 +8,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { WalletsService } from '../wallets/wallets.service';
 import { RewardsService } from '../rewards/rewards.service';
 import { UserManagementService } from '../user-management/user-management.service';
+import { EmailService } from '../auth/services/email.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import {
@@ -20,12 +21,14 @@ import { Decimal } from '@prisma/client/runtime/library';
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
+  private readonly PLATFORM_MARKUP = 1.20; // 20% markup - customers pay this, merchants get base price
 
   constructor(
     private prisma: PrismaService,
     private walletsService: WalletsService,
     private rewardsService: RewardsService,
     private userManagementService: UserManagementService,
+    private emailService: EmailService,
   ) {}
 
   private generateOrderNumber(): string {
@@ -68,14 +71,38 @@ export class OrdersService {
         );
       }
 
-      const itemTotal = new Decimal(price.price).mul(item.quantity);
+      // Validate shipping country against product's available countries
+      if (shippingAddress?.country) {
+        const shippingCountry = shippingAddress.country.toUpperCase().trim();
+        const availableCountries = product.availableCountries || [];
+
+        // Empty array means worldwide availability
+        const isWorldwide = availableCountries.length === 0;
+        const isAvailableInCountry = availableCountries.some(
+          (country) => country.toUpperCase().trim() === shippingCountry
+        );
+
+        if (!isWorldwide && !isAvailableInCountry) {
+          const availableCountriesStr = availableCountries.length > 0
+            ? availableCountries.join(', ')
+            : 'worldwide';
+          throw new BadRequestException(
+            `Product "${product.name}" cannot be shipped to ${shippingCountry}. ` +
+            `Available countries: ${availableCountriesStr}`
+          );
+        }
+      }
+
+      // Apply 20% platform markup to merchant's base price
+      const platformPrice = new Decimal(price.price).mul(this.PLATFORM_MARKUP);
+      const itemTotal = platformPrice.mul(item.quantity);
       subtotal = subtotal.add(itemTotal);
 
       orderItems.push({
         productId: product.id,
         quantity: item.quantity,
         stablecoinType,
-        pricePerUnit: price.price,
+        pricePerUnit: platformPrice, // Customer pays platform price (merchant price + 20%)
         totalPrice: itemTotal,
       });
     }
@@ -139,7 +166,9 @@ export class OrdersService {
             status: OrderStatus.CONFIRMED,
             network: wallet.network,
             metadata,
-            shippingAddress,
+            shippingAddress: (shippingAddress
+              ? JSON.parse(JSON.stringify(shippingAddress))
+              : undefined) as any,
             paidAt: new Date(),
             items: {
               create: orderItems,
@@ -207,7 +236,9 @@ export class OrdersService {
           transactionHash: transactionHash || undefined,
           network: network || undefined,
           metadata,
-          shippingAddress,
+          shippingAddress: (shippingAddress
+            ? JSON.parse(JSON.stringify(shippingAddress))
+            : undefined) as any,
           items: {
             create: orderItems,
           },
@@ -316,7 +347,77 @@ export class OrdersService {
       this.logger.error(`Failed to process rewards for order ${orderId}`, error);
     });
 
+    // Send order confirmation email asynchronously
+    this.sendOrderConfirmationEmail(order).catch((error) => {
+      this.logger.error(
+        `Failed to send order confirmation email for order ${orderId}`,
+        error,
+      );
+    });
+
     return this.findOne(orderId, order.userId);
+  }
+
+  /**
+   * Send order confirmation email
+   */
+  private async sendOrderConfirmationEmail(order: any) {
+    try {
+      // Get user details
+      const user = await this.prisma.user.findUnique({
+        where: { id: order.userId },
+      });
+
+      if (!user?.email) {
+        this.logger.warn(
+          `No email found for user ${order.userId}, skipping order confirmation email`,
+        );
+        return;
+      }
+
+      // Get order with items
+      const orderWithItems = await this.prisma.order.findUnique({
+        where: { id: order.id },
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+      });
+
+      if (!orderWithItems) return;
+
+      // Format order items for email
+      const orderItems = orderWithItems.items.map((item) => ({
+        name: item.product.name,
+        quantity: item.quantity,
+        price: item.pricePerUnit.toString(),
+        total: item.totalPrice.toString(),
+      }));
+
+      // Format shipping address
+      const shippingAddress =
+        typeof orderWithItems.shippingAddress === 'string'
+          ? orderWithItems.shippingAddress
+          : JSON.stringify(orderWithItems.shippingAddress, null, 2);
+
+      await this.emailService.sendOrderConfirmedEmail(user.email, {
+        firstName: user.email.split('@')[0],
+        orderNumber: orderWithItems.orderNumber,
+        orderItems,
+        totalAmount: orderWithItems.total.toString(),
+        stablecoin: orderWithItems.stablecoinType,
+        transactionHash: orderWithItems.transactionHash || 'Processing',
+        shippingAddress,
+        estimatedDelivery: 'Within 5-7 business days',
+      });
+    } catch (error) {
+      this.logger.error(
+        `Error in sendOrderConfirmationEmail: ${error.message}`,
+      );
+    }
   }
 
   /**
@@ -596,7 +697,58 @@ export class OrdersService {
       `Order ${order.orderNumber} status updated to ${updateStatusDto.status}`,
     );
 
+    // Send order shipped email if status changed to SHIPPED
+    if (updateStatusDto.status === OrderStatus.SHIPPED) {
+      this.sendOrderShippedEmail(updatedOrder, updateStatusDto.trackingNumber).catch(
+        (error) => {
+          this.logger.error(
+            `Failed to send order shipped email for order ${orderId}`,
+            error,
+          );
+        },
+      );
+    }
+
     return updatedOrder;
+  }
+
+  /**
+   * Send order shipped email
+   */
+  private async sendOrderShippedEmail(order: any, trackingNumber?: string) {
+    try {
+      // Get user details
+      const user = await this.prisma.user.findUnique({
+        where: { id: order.userId },
+      });
+
+      if (!user?.email) {
+        this.logger.warn(
+          `No email found for user ${order.userId}, skipping order shipped email`,
+        );
+        return;
+      }
+
+      // Format shipping address
+      const shippingAddress =
+        typeof order.shippingAddress === 'string'
+          ? order.shippingAddress
+          : JSON.stringify(order.shippingAddress, null, 2);
+
+      await this.emailService.sendOrderShippedEmail(user.email, {
+        firstName: user.email.split('@')[0],
+        orderNumber: order.orderNumber,
+        trackingNumber: trackingNumber || order.trackingNumber || 'N/A',
+        carrier: 'Carrier', // You can enhance this to accept carrier from DTO
+        trackingUrl: trackingNumber
+          ? `https://www.trackingmore.com/track/${trackingNumber}`
+          : undefined,
+        estimatedDelivery: 'Within 3-5 business days',
+        shippingAddress,
+      });
+    } catch (error) {
+      this.logger.error(`Error in sendOrderShippedEmail: ${error.message}`);
+    }
   }
 
   async getOrderStats() {

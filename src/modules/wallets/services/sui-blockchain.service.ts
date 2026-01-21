@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SuiClient } from '@mysten/sui/client';
+import { Transaction } from '@mysten/sui/transactions';
+import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { fromHex } from '@mysten/sui/utils';
 
 /**
  * SUI Blockchain Service
@@ -311,6 +314,21 @@ export class SuiBlockchainService {
   }
 
   /**
+   * Get current checkpoint sequence number
+   * @returns Current checkpoint number
+   */
+  async getCurrentCheckpoint(): Promise<number> {
+    try {
+      const client = this.getClient();
+      const checkpoint = await client.getLatestCheckpointSequenceNumber();
+      return Number(checkpoint);
+    } catch (error) {
+      this.logger.error(`Failed to get current checkpoint: ${error.message}`);
+      return 0;
+    }
+  }
+
+  /**
    * Get coin metadata (decimals, symbol, name)
    * @param coinType Coin type identifier
    * @returns Coin metadata
@@ -353,6 +371,189 @@ export class SuiBlockchainService {
     } catch (error) {
       this.logger.error(`Failed to get reference gas price: ${error.message}`);
       return '1000'; // Default fallback
+    }
+  }
+
+  /**
+   * Sweep coins from deposit address to hot wallet
+   * @param privateKey Private key of deposit address (hex string)
+   * @param hotWalletAddress Hot wallet address to send coins to
+   * @param coinType Coin type to sweep (e.g., USDC coin type)
+   * @returns Transaction digest and sweep details
+   */
+  async sweepCoins(
+    privateKey: string,
+    hotWalletAddress: string,
+    coinType: string,
+  ): Promise<{
+    digest: string;
+    amount: string;
+    gasFee: string;
+    success: boolean;
+  }> {
+    try {
+      const client = this.getClient();
+
+      // Create keypair from private key
+      let keypair: Ed25519Keypair;
+      try {
+        // Private key should be hex string without 0x prefix
+        const cleanPrivateKey = privateKey.startsWith('0x')
+          ? privateKey.slice(2)
+          : privateKey;
+        const privateKeyBytes = fromHex(cleanPrivateKey);
+        keypair = Ed25519Keypair.fromSecretKey(privateKeyBytes);
+      } catch (error) {
+        this.logger.error(`Failed to create keypair: ${error.message}`);
+        throw new Error('Invalid private key format');
+      }
+
+      const senderAddress = keypair.toSuiAddress();
+      this.logger.log(
+        `Sweeping coins from ${senderAddress} to ${hotWalletAddress}`,
+      );
+
+      // Get all coin objects for this coin type
+      const coins = await client.getCoins({
+        owner: senderAddress,
+        coinType: coinType,
+      });
+
+      if (!coins.data || coins.data.length === 0) {
+        this.logger.warn(`No coins found for ${coinType} at ${senderAddress}`);
+        return {
+          digest: '',
+          amount: '0',
+          gasFee: '0',
+          success: false,
+        };
+      }
+
+      // Calculate total balance
+      const totalBalance = coins.data.reduce(
+        (sum, coin) => sum + BigInt(coin.balance),
+        BigInt(0),
+      );
+
+      if (totalBalance === BigInt(0)) {
+        this.logger.warn(`Zero balance for ${coinType} at ${senderAddress}`);
+        return {
+          digest: '',
+          amount: '0',
+          gasFee: '0',
+          success: false,
+        };
+      }
+
+      this.logger.log(
+        `Found ${coins.data.length} coin objects with total balance: ${totalBalance}`,
+      );
+
+      // Create transaction to merge and transfer all coins
+      const tx = new Transaction();
+
+      // If there are multiple coin objects, merge them first
+      if (coins.data.length > 1) {
+        // Take the first coin as primary
+        const primaryCoin = coins.data[0];
+        const coinsToMerge = coins.data.slice(1).map((c) => c.coinObjectId);
+
+        if (coinsToMerge.length > 0) {
+          // Merge all coins into the primary coin
+          tx.mergeCoins(primaryCoin.coinObjectId, coinsToMerge);
+        }
+
+        // Transfer the merged coin
+        tx.transferObjects([primaryCoin.coinObjectId], hotWalletAddress);
+      } else {
+        // Only one coin object, transfer it directly
+        tx.transferObjects([coins.data[0].coinObjectId], hotWalletAddress);
+      }
+
+      // Set gas budget (estimate)
+      tx.setGasBudget(10000000); // 0.01 SUI (10M MIST)
+
+      // Sign and execute transaction
+      const result = await client.signAndExecuteTransaction({
+        transaction: tx,
+        signer: keypair,
+        options: {
+          showEffects: true,
+          showObjectChanges: true,
+        },
+      });
+
+      // Check if transaction was successful
+      // SUI transaction status can be { status: 'success' } or { status: 'failure' }
+      const effectsStatus = result.effects?.status;
+      const success =
+        effectsStatus &&
+        typeof effectsStatus === 'object' &&
+        'status' in effectsStatus &&
+        effectsStatus.status === 'success';
+
+      if (!success) {
+        this.logger.error(
+          `Sweep transaction failed: ${JSON.stringify(result.effects)}`,
+        );
+        throw new Error('Sweep transaction failed');
+      }
+
+      // Calculate gas fee
+      const gasFee =
+        result.effects?.gasUsed?.computationCost ||
+        result.effects?.gasUsed?.storageCost ||
+        '0';
+
+      this.logger.log(
+        `Sweep successful! Digest: ${result.digest}, Amount: ${totalBalance}, Gas: ${gasFee}`,
+      );
+
+      return {
+        digest: result.digest,
+        amount: totalBalance.toString(),
+        gasFee: gasFee.toString(),
+        success: true,
+      };
+    } catch (error) {
+      this.logger.error(`Sweep transaction failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get coin objects for an address (used for sweep operations)
+   * @param address SUI wallet address
+   * @param coinType Coin type to query
+   * @returns Array of coin objects
+   */
+  async getCoinObjects(
+    address: string,
+    coinType: string,
+  ): Promise<
+    Array<{
+      coinObjectId: string;
+      balance: string;
+      digest: string;
+    }>
+  > {
+    try {
+      const client = this.getClient();
+      const coins = await client.getCoins({
+        owner: address,
+        coinType: coinType,
+      });
+
+      return coins.data.map((coin) => ({
+        coinObjectId: coin.coinObjectId,
+        balance: coin.balance,
+        digest: coin.digest,
+      }));
+    } catch (error) {
+      this.logger.error(
+        `Failed to get coin objects for ${address}: ${error.message}`,
+      );
+      return [];
     }
   }
 }

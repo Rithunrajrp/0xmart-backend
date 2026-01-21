@@ -260,6 +260,8 @@ export class MerchantService {
           stock: createProductDto.stock,
           isDigital: createProductDto.isDigital,
           status: 'ACTIVE',
+          rating: new Decimal(0),
+          totalReviews: 0,
           images: createProductDto.images || [],
           prices: {
             create: createProductDto.prices.map((p) => ({
@@ -606,6 +608,137 @@ export class MerchantService {
       message: 'Documents submitted for review successfully',
       status: updatedSeller.status,
       documentsCount: seller.sellerDocuments.length,
+    };
+  }
+
+  async getMerchantRevenue(
+    userId: string,
+    params?: {
+      startDate?: string;
+      endDate?: string;
+      groupBy?: 'day' | 'week' | 'month';
+    },
+  ) {
+    // Find the seller linked to this user
+    const seller = await this.prisma.seller.findUnique({
+      where: { userId },
+    });
+
+    if (!seller) {
+      throw new NotFoundException('Merchant profile not found for this user');
+    }
+
+    const { startDate, endDate, groupBy = 'month' } = params || {};
+
+    // Build date filter
+    const dateFilter: any = {};
+    if (startDate) {
+      dateFilter.gte = new Date(startDate);
+    }
+    if (endDate) {
+      dateFilter.lte = new Date(endDate);
+    }
+
+    // Get orders for this seller's products
+    const orders = await this.prisma.order.findMany({
+      where: {
+        items: {
+          some: {
+            product: {
+              sellerId: seller.id,
+            },
+          },
+        },
+        status: {
+          in: ['PAID', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'],
+        },
+        ...(Object.keys(dateFilter).length > 0 && { createdAt: dateFilter }),
+      },
+      include: {
+        items: {
+          where: {
+            product: {
+              sellerId: seller.id,
+            },
+          },
+          include: {
+            product: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
+    // Group revenue by period
+    const revenueByPeriod = new Map<string, { revenue: Decimal; orders: number }>();
+
+    orders.forEach((order) => {
+      const orderDate = new Date(order.createdAt);
+      let periodKey: string;
+
+      switch (groupBy) {
+        case 'day':
+          periodKey = orderDate.toISOString().split('T')[0]; // YYYY-MM-DD
+          break;
+        case 'week':
+          // Get the Monday of the week
+          const monday = new Date(orderDate);
+          const day = monday.getDay();
+          const diff = monday.getDate() - day + (day === 0 ? -6 : 1);
+          monday.setDate(diff);
+          periodKey = monday.toISOString().split('T')[0];
+          break;
+        case 'month':
+        default:
+          periodKey = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
+          break;
+      }
+
+      // Calculate revenue for this order (only seller's items)
+      const orderRevenue = order.items.reduce(
+        (sum, item) => sum.add(new Decimal(item.totalPrice)),
+        new Decimal(0),
+      );
+
+      const current = revenueByPeriod.get(periodKey) || {
+        revenue: new Decimal(0),
+        orders: 0,
+      };
+      revenueByPeriod.set(periodKey, {
+        revenue: current.revenue.add(orderRevenue),
+        orders: current.orders + 1,
+      });
+    });
+
+    // Convert to array format
+    const revenueData = Array.from(revenueByPeriod.entries())
+      .map(([period, data]) => ({
+        period,
+        revenue: data.revenue.toFixed(2),
+        orders: data.orders,
+      }))
+      .sort((a, b) => a.period.localeCompare(b.period));
+
+    // Calculate totals
+    const totalRevenue = orders.reduce((sum, order) => {
+      const orderRevenue = order.items.reduce(
+        (itemSum, item) => itemSum.add(new Decimal(item.totalPrice)),
+        new Decimal(0),
+      );
+      return sum.add(orderRevenue);
+    }, new Decimal(0));
+
+    return {
+      data: revenueData,
+      summary: {
+        totalRevenue: totalRevenue.toFixed(2),
+        totalOrders: orders.length,
+        groupBy,
+        startDate: startDate || orders[0]?.createdAt.toISOString().split('T')[0],
+        endDate: endDate || new Date().toISOString().split('T')[0],
+      },
     };
   }
 }

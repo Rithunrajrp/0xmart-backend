@@ -2,9 +2,9 @@
   "contractName": "PaymentProcessor",
   "network": "sepolia",
   "chainId": "11155111",
-  "contractAddress": "0x0e460B83aE965B73F3BC7F970619d48e3691d433",
-  "hotWalletAddress": "0x0b8338c719E6b9627E27b9D984d72b5278b17F10",
-  "deployer": "0x0b8338c719E6b9627E27b9D984d72b5278b17F10",
-  "deploymentTime": "2025-12-29T10:54:26.653Z",
-  "blockNumber": 9937974
+  "contractAddress": "0x59F72d95Ecd953fB1317C2D593d96Afff1E1C0ee",
+  "hotWalletAddress": "0x6483C9dd897E3dDACC67b039c9C1b4e82d8B13E2",
+  "deployer": "0x6483C9dd897E3dDACC67b039c9C1b4e82d8B13E2",
+  "deploymentTime": "2026-01-13T17:03:49.479Z",
+  "blockNumber": 10036109
 }

@@ -6,7 +6,17 @@ import {
   LAMPORTS_PER_SOL,
   ParsedAccountData,
   ConfirmedSignatureInfo,
+  Keypair,
+  Transaction,
+  SystemProgram,
+  sendAndConfirmTransaction,
 } from '@solana/web3.js';
+import {
+  getAssociatedTokenAddress,
+  createTransferInstruction,
+  getAccount,
+  TOKEN_PROGRAM_ID,
+} from '@solana/spl-token';
 import { NetworkType } from '@prisma/client';
 
 /**
@@ -457,6 +467,199 @@ export class SolanaBlockchainService {
     } catch (error) {
       this.logger.error(`Failed to get recent blockhash: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * Sweep SPL tokens from deposit address to hot wallet
+   * @param privateKey Private key of deposit address (hex string)
+   * @param hotWalletAddress Hot wallet address to send tokens to
+   * @param tokenMintAddress SPL token mint address (e.g., USDC mint)
+   * @returns Transaction signature and sweep details
+   */
+  async sweepTokens(
+    privateKey: string,
+    hotWalletAddress: string,
+    tokenMintAddress: string,
+  ): Promise<{
+    signature: string;
+    amount: string;
+    gasFee: string;
+    success: boolean;
+  }> {
+    try {
+      const connection = this.getConnection();
+
+      // Create keypair from private key
+      let keypair: Keypair;
+      try {
+        // Private key should be hex string without 0x prefix
+        const cleanPrivateKey = privateKey.startsWith('0x')
+          ? privateKey.slice(2)
+          : privateKey;
+        const privateKeyBytes = Buffer.from(cleanPrivateKey, 'hex');
+        keypair = Keypair.fromSecretKey(privateKeyBytes);
+      } catch (error) {
+        this.logger.error(`Failed to create keypair: ${error.message}`);
+        throw new Error('Invalid private key format');
+      }
+
+      const fromAddress = keypair.publicKey;
+      const toAddressPubkey = new PublicKey(hotWalletAddress);
+      const tokenMintPubkey = new PublicKey(tokenMintAddress);
+
+      this.logger.log(
+        `Sweeping tokens from ${fromAddress.toString()} to ${hotWalletAddress}`,
+      );
+
+      // Get the source token account (deposit address token account)
+      const sourceTokenAccount = await getAssociatedTokenAddress(
+        tokenMintPubkey,
+        fromAddress,
+      );
+
+      // Get the destination token account (hot wallet token account)
+      const destTokenAccount = await getAssociatedTokenAddress(
+        tokenMintPubkey,
+        toAddressPubkey,
+      );
+
+      // Get source token account info to get balance
+      const sourceAccountInfo = await getAccount(
+        connection,
+        sourceTokenAccount,
+      );
+
+      const balance = sourceAccountInfo.amount;
+
+      if (balance === BigInt(0)) {
+        this.logger.warn(
+          `Zero balance for token at ${fromAddress.toString()}`,
+        );
+        return {
+          signature: '',
+          amount: '0',
+          gasFee: '0',
+          success: false,
+        };
+      }
+
+      this.logger.log(`Found token balance: ${balance.toString()}`);
+
+      // Check if destination token account exists
+      let destAccountExists = false;
+      try {
+        await getAccount(connection, destTokenAccount);
+        destAccountExists = true;
+      } catch (error) {
+        // Account doesn't exist, we'll need to create it
+        this.logger.warn(
+          'Destination token account does not exist. Transaction will fail if hot wallet has no associated token account.',
+        );
+      }
+
+      // Create transaction
+      const transaction = new Transaction();
+
+      // Add transfer instruction
+      transaction.add(
+        createTransferInstruction(
+          sourceTokenAccount, // source
+          destTokenAccount, // destination
+          fromAddress, // owner of source account
+          balance, // amount (transfer all)
+          [], // multiSigners (empty for single signer)
+          TOKEN_PROGRAM_ID,
+        ),
+      );
+
+      // Get recent blockhash
+      const { blockhash, lastValidBlockHeight } =
+        await connection.getLatestBlockhash('confirmed');
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = fromAddress;
+
+      // Sign transaction
+      transaction.sign(keypair);
+
+      // Send and confirm transaction
+      const signature = await sendAndConfirmTransaction(
+        connection,
+        transaction,
+        [keypair],
+        {
+          commitment: 'confirmed',
+          maxRetries: 3,
+        },
+      );
+
+      // Get transaction details to get fee
+      const confirmedTx = await connection.getParsedTransaction(signature, {
+        maxSupportedTransactionVersion: 0,
+      });
+
+      const fee = confirmedTx?.meta?.fee || 5000; // Default 5000 lamports if can't get fee
+
+      this.logger.log(
+        `Sweep successful! Signature: ${signature}, Amount: ${balance}, Fee: ${fee}`,
+      );
+
+      return {
+        signature,
+        amount: balance.toString(),
+        gasFee: fee.toString(),
+        success: true,
+      };
+    } catch (error) {
+      this.logger.error(`Sweep transaction failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get token accounts for an address (used for sweep operations)
+   * @param address Solana wallet address
+   * @param tokenMintAddress Token mint address
+   * @returns Token account information
+   */
+  async getTokenAccount(
+    address: string,
+    tokenMintAddress: string,
+  ): Promise<{
+    address: string;
+    balance: string;
+    decimals: number;
+  } | null> {
+    try {
+      const connection = this.getConnection();
+      const walletPublicKey = new PublicKey(address);
+      const tokenMintPublicKey = new PublicKey(tokenMintAddress);
+
+      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+        walletPublicKey,
+        {
+          mint: tokenMintPublicKey,
+        },
+      );
+
+      if (tokenAccounts.value.length === 0) {
+        return null;
+      }
+
+      const tokenAccount = tokenAccounts.value[0];
+      const parsedData = tokenAccount.account.data as ParsedAccountData;
+      const tokenAmount = parsedData.parsed.info.tokenAmount;
+
+      return {
+        address: tokenAccount.pubkey.toString(),
+        balance: tokenAmount.amount,
+        decimals: tokenAmount.decimals,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to get token account for ${address}: ${error.message}`,
+      );
+      return null;
     }
   }
 }

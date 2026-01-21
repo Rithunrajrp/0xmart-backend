@@ -35,12 +35,29 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# dotenv environment variable files
+# dotenv environment variable files - SECURITY CRITICAL
 .env
+.env.*
 .env.development.local
 .env.test.local
 .env.production.local
 .env.local
+**/.env
+**/.env.*
+smart-contracts/.env
+smart-contracts/**/.env
+
+# Wallet files - SECURITY CRITICAL: Never commit private keys/mnemonics
+*-wallet.json
+**/*-wallet.json
+*.key
+**/*.key
+wallet.json
+**/wallet.json
+
+# IDE/Tool configs with potential secrets
+.claude/settings.local.json
+**/.claude/settings.local.json
 
 # temp directory
 .temp

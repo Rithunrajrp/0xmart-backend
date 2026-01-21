@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { ExternalPaymentController } from './external-payment.controller';
 import { ExternalPaymentService } from './external-payment.service';
+import { BlockchainVerificationService } from './services/blockchain-verification.service';
 import { PrismaModule } from '../../../prisma/prisma.module';
 import { ApiKeysModule } from '../api-keys/api-keys.module';
 import { AdsModule } from '../ads/ads.module';
@@ -24,7 +25,7 @@ import { NetworksModule } from '../networks/networks.module';
     NetworksModule,
   ],
   controllers: [ExternalPaymentController],
-  providers: [ExternalPaymentService],
+  providers: [ExternalPaymentService, BlockchainVerificationService],
   exports: [ExternalPaymentService],
 })
 export class ExternalPaymentModule {}

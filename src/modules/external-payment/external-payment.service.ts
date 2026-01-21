@@ -22,6 +22,7 @@ import { EmailService } from '../auth/services/email.service';
 import { AddressGeneratorService } from '../wallets/services/address-generator.service';
 import { BlockchainService } from '../wallets/services/blockchain.service';
 import { NetworksService } from '../networks/networks.service';
+import { BlockchainVerificationService } from './services/blockchain-verification.service';
 import { ethers } from 'ethers';
 import {
   PAYMENT_PROCESSOR_ADDRESSES,
@@ -87,6 +88,7 @@ export class ExternalPaymentService {
     private addressGeneratorService: AddressGeneratorService,
     private blockchainService: BlockchainService,
     private networksService: NetworksService,
+    private blockchainVerificationService: BlockchainVerificationService,
   ) {}
 
   /**
@@ -868,11 +870,17 @@ export class ExternalPaymentService {
         'BASE',
       ];
 
+      // Handle non-EVM networks (SUI, Solana, TON)
       if (!evmNetworks.includes(network)) {
-        this.logger.warn(
-          `Blockchain verification not implemented for ${network}. Skipping verification.`,
+        this.logger.log(
+          `Using blockchain verification service for ${network}`,
         );
-        return { verified: true }; // Auto-approve for non-EVM networks
+        return await this.blockchainVerificationService.verifyPayment(
+          network,
+          txHash,
+          expectedContractAddress,
+          expectedOrderId,
+        );
       }
 
       // Get transaction receipt

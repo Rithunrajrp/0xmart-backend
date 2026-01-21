@@ -2,9 +2,9 @@
   "contractName": "PaymentProcessor",
   "network": "arbitrumSepolia",
   "chainId": "421614",
-  "contractAddress": "0x467C1A0F1B3330681d69eA154904ee70bbeA9e13",
-  "hotWalletAddress": "0x0b8338c719E6b9627E27b9D984d72b5278b17F10",
-  "deployer": "0x0b8338c719E6b9627E27b9D984d72b5278b17F10",
-  "deploymentTime": "2025-12-29T10:34:33.969Z",
-  "blockNumber": 228743303
+  "contractAddress": "0x7969694616e0Cbb1F59A80B09D5a8C08599B6ee5",
+  "hotWalletAddress": "0x6483C9dd897E3dDACC67b039c9C1b4e82d8B13E2",
+  "deployer": "0x6483C9dd897E3dDACC67b039c9C1b4e82d8B13E2",
+  "deploymentTime": "2026-01-13T17:04:26.522Z",
+  "blockNumber": 233184505
 }

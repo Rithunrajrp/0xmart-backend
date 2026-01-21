@@ -35,6 +35,7 @@ import { SupportModule } from './modules/support/support.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { TonPaymentModule } from './modules/ton-payment/ton-payment.module';
 
 @Module({
   imports: [
@@ -88,6 +89,8 @@ import { SettingsModule } from './modules/settings/settings.module';
     UploadModule,
     // System settings
     SettingsModule,
+    // TON blockchain payment
+    TonPaymentModule,
   ],
   providers: [
     {

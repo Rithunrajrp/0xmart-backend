@@ -4,22 +4,61 @@ import * as bip39 from 'bip39';
 import { HDKey } from '@scure/bip32';
 import { Keypair } from '@solana/web3.js';
 import { derivePath } from 'ed25519-hd-key';
+import { EncryptionUtil } from '../../../common/utils/encryption.util';
 
 @Injectable()
 export class AddressGeneratorService {
   private readonly logger = new Logger(AddressGeneratorService.name);
   private masterSeed: string;
+  private encryptionSecret: string;
 
   constructor() {
-    // In production, load this from secure storage (AWS Secrets Manager, HashiCorp Vault)
-    this.masterSeed = process.env.MASTER_SEED || this.generateMasterSeed();
+    // SECURITY CRITICAL: MASTER_SEED must be set in production
+    const masterSeed = process.env.MASTER_SEED;
+
+    if (!masterSeed) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          'FATAL: MASTER_SEED is required in production. ' +
+          'Generate a secure BIP39 mnemonic and store it in AWS Secrets Manager or similar.',
+        );
+      }
+
+      // Only auto-generate in development
+      this.logger.warn(
+        '⚠️ WARNING: Auto-generating master seed for DEVELOPMENT only. ' +
+        'This will be different on each restart. ' +
+        'Set MASTER_SEED in .env for persistent addresses.',
+      );
+      this.masterSeed = this.generateMasterSeed();
+    } else {
+      this.masterSeed = masterSeed;
+      this.logger.log('✓ Master seed loaded from environment (production safe)');
+    }
+
+    // Load encryption secret for private key storage
+    this.encryptionSecret = process.env.MASTER_KEY_ENCRYPTION_SECRET || '';
+    if (!this.encryptionSecret || this.encryptionSecret.length < 32) {
+      this.logger.warn(
+        '⚠️ WARNING: MASTER_KEY_ENCRYPTION_SECRET not set or too short. ' +
+        'Private keys will not be encrypted properly. ' +
+        'Set a secure 32+ character secret in production.',
+      );
+    }
   }
 
   private generateMasterSeed(): string {
-    // Generate a new mnemonic for master wallet
+    // SECURITY: Only called in development mode
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Cannot auto-generate master seed in production');
+    }
+
+    // Generate a new mnemonic for development
     const mnemonic = bip39.generateMnemonic();
-    this.logger.warn('🔐 IMPORTANT: Store this master seed securely!');
-    this.logger.warn(`Master Seed: ${mnemonic}`);
+
+    // SECURITY: NEVER log the actual mnemonic in any environment
+    this.logger.debug('Development master seed generated (value not logged for security)');
+
     return mnemonic;
   }
 
@@ -35,7 +74,11 @@ export class AddressGeneratorService {
       }
 
       if (network === 'TON') {
-        return this.generateTonAddress(userId, index);
+        // TON uses Telegram mini app with smart contract payments
+        // No deposit addresses are generated
+        throw new Error(
+          'TON deposit addresses are not supported. Use Telegram mini app with smart contract payments.',
+        );
       }
 
       if (network === 'SUI') {
@@ -198,6 +241,36 @@ export class AddressGeneratorService {
       this.logger.error(`Failed to generate SUI address: ${error}`);
       throw error;
     }
+  }
+
+  /**
+   * Encrypt private key for secure storage
+   * @param privateKey Private key to encrypt (hex string)
+   * @returns Base64-encoded encrypted private key
+   */
+  async encryptPrivateKey(privateKey: string): Promise<string> {
+    if (!this.encryptionSecret || this.encryptionSecret.length < 32) {
+      throw new Error(
+        'Encryption secret not configured. Set MASTER_KEY_ENCRYPTION_SECRET in environment.',
+      );
+    }
+
+    return EncryptionUtil.encrypt(privateKey, this.encryptionSecret);
+  }
+
+  /**
+   * Decrypt private key from storage
+   * @param encryptedPrivateKey Base64-encoded encrypted private key
+   * @returns Decrypted private key (hex string)
+   */
+  async decryptPrivateKey(encryptedPrivateKey: string): Promise<string> {
+    if (!this.encryptionSecret || this.encryptionSecret.length < 32) {
+      throw new Error(
+        'Encryption secret not configured. Set MASTER_KEY_ENCRYPTION_SECRET in environment.',
+      );
+    }
+
+    return EncryptionUtil.decrypt(encryptedPrivateKey, this.encryptionSecret);
   }
 
   // Validate address format

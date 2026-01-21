@@ -1,17 +1,76 @@
-export default () => ({
-  port: parseInt(process.env.PORT || '3000', 10) || 3000,
-  nodeEnv: process.env.NODE_ENV || 'development',
-  apiPrefix: process.env.API_PREFIX || 'api/v1',
-  database: {
-    url: process.env.DATABASE_URL,
-  },
-  jwt: {
-    secret: process.env.JWT_SECRET,
-    expiresIn: process.env.JWT_EXPIRATION || '30d',
-    refreshSecret: process.env.JWT_REFRESH_SECRET,
-    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRATION || '60d',
-  },
-  sendgrid: {
+export default () => {
+  // SECURITY CRITICAL: Validate JWT secrets before starting application
+  const jwtSecret = process.env.JWT_SECRET;
+  const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET;
+  const nodeEnv = process.env.NODE_ENV || 'development';
+
+  // In production, enforce strong JWT secrets
+  if (nodeEnv === 'production') {
+    if (!jwtSecret || !jwtRefreshSecret) {
+      throw new Error(
+        'FATAL: JWT_SECRET and JWT_REFRESH_SECRET are required in production. ' +
+        'Generate using: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"',
+      );
+    }
+
+    if (jwtSecret.length < 64) {
+      throw new Error(
+        'FATAL: JWT_SECRET must be at least 64 characters in production. ' +
+        `Current length: ${jwtSecret.length}`,
+      );
+    }
+
+    if (jwtRefreshSecret.length < 64) {
+      throw new Error(
+        'FATAL: JWT_REFRESH_SECRET must be at least 64 characters in production. ' +
+        `Current length: ${jwtRefreshSecret.length}`,
+      );
+    }
+
+    if (jwtSecret === jwtRefreshSecret) {
+      throw new Error(
+        'FATAL: JWT_SECRET and JWT_REFRESH_SECRET must be different values',
+      );
+    }
+
+    // Warn about placeholder secrets
+    const placeholderPatterns = [
+      'your-',
+      'change-',
+      'secret-key',
+      'jwt-key',
+      'example',
+      'test',
+      'demo',
+    ];
+
+    const secretLower = jwtSecret.toLowerCase();
+    const refreshSecretLower = jwtRefreshSecret.toLowerCase();
+
+    placeholderPatterns.forEach((pattern) => {
+      if (secretLower.includes(pattern) || refreshSecretLower.includes(pattern)) {
+        throw new Error(
+          `FATAL: JWT secrets appear to be placeholder values containing "${pattern}". ` +
+          'Generate cryptographically strong secrets for production.',
+        );
+      }
+    });
+  }
+
+  return {
+    port: parseInt(process.env.PORT || '3000', 10) || 3000,
+    nodeEnv,
+    apiPrefix: process.env.API_PREFIX || 'api/v1',
+    database: {
+      url: process.env.DATABASE_URL,
+    },
+    jwt: {
+      secret: jwtSecret || '',
+      expiresIn: process.env.JWT_EXPIRATION || '15m', // SECURITY: Changed from 30d
+      refreshSecret: jwtRefreshSecret || '',
+      refreshExpiresIn: process.env.JWT_REFRESH_EXPIRATION || '7d', // SECURITY: Changed from 60d
+    },
+    sendgrid: {
     apiKey: process.env.SENDGRID_API_KEY,
     fromEmail: process.env.SENDGRID_FROM_EMAIL,
     fromName: process.env.SENDGRID_FROM_NAME || '0xMart',
@@ -103,6 +162,12 @@ export default () => ({
       process.env.NODE_ENV === 'development'
         ? process.env.SUI_TESTNET_RPC_URL || process.env.SUI_RPC_URL
         : process.env.SUI_RPC_URL,
+    // SUI Hot Wallet - for automatic sweep of deposits
+    suiHotWallet: process.env.SUI_HOT_WALLET_ADDRESS,
+    suiHotWalletPrivateKey: process.env.SUI_HOT_WALLET_PRIVATE_KEY,
+    // Solana Hot Wallet - for automatic sweep of deposits
+    solanaHotWallet: process.env.SOLANA_HOT_WALLET_ADDRESS,
+    solanaHotWalletPrivateKey: process.env.SOLANA_HOT_WALLET_PRIVATE_KEY,
     // TON - uses testnet in development, mainnet in production
     ton:
       process.env.NODE_ENV === 'development'
@@ -133,6 +198,7 @@ export default () => ({
     limit: parseInt(process.env.THROTTLE_LIMIT || '10', 10) || 10,
   },
   recaptcha: {
-    secretKey: process.env.RECAPTCHA_SECRET_KEY,
-  },
-});
+      secretKey: process.env.RECAPTCHA_SECRET_KEY,
+    },
+  };
+};

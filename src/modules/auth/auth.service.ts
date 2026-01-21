@@ -174,6 +174,12 @@ export class AuthService {
       });
 
       this.logger.log(`New user created: ${user.id} with role: ${userRole}`);
+
+      // Send welcome email to new user (async, non-blocking)
+      const firstName = normalizedEmail.split('@')[0];
+      this.emailService.sendWelcomeEmail(normalizedEmail, firstName).catch((error) => {
+        this.logger.error(`Failed to send welcome email to ${normalizedEmail}`, error);
+      });
     }
 
     // Check if user has a seller profile and update role to MERCHANT if needed

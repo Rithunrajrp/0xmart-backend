@@ -29,6 +29,9 @@ export class SettingsService implements OnModuleInit {
           withdrawalsEnabled: true,
           depositsEnabled: true,
           fiatPurchaseEnabled: true,
+          tokenSwapEnabled: false,
+          apiAccessEnabled: true,
+          showTestnetBanner: true,
         },
       });
       this.logger.log('✅ Default system settings created');
@@ -92,5 +95,15 @@ export class SettingsService implements OnModuleInit {
   async isFiatPurchaseEnabled(): Promise<boolean> {
     const settings = await this.getSettings();
     return settings.fiatPurchaseEnabled;
+  }
+
+  async isTokenSwapEnabled(): Promise<boolean> {
+    const settings = await this.getSettings();
+    return settings.tokenSwapEnabled;
+  }
+
+  async isApiAccessEnabled(): Promise<boolean> {
+    const settings = await this.getSettings();
+    return settings.apiAccessEnabled;
   }
 }

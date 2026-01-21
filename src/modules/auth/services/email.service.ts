@@ -509,4 +509,134 @@ export class EmailService {
       throw new Error('Failed to send merchant onboarding email');
     }
   }
+
+  async sendOrderConfirmedEmail(
+    email: string,
+    orderData: {
+      firstName: string;
+      orderNumber: string;
+      orderItems: any[];
+      totalAmount: string;
+      stablecoin: string;
+      transactionHash: string;
+      shippingAddress: string;
+      estimatedDelivery?: string;
+    },
+  ): Promise<void> {
+    const apiKey = this.configService.get<string>('sendgrid.apiKey');
+    if (!apiKey) {
+      this.logger.warn(
+        `SendGrid not configured. Would send order confirmed email to ${email}`,
+      );
+      return;
+    }
+
+    try {
+      const templateId = this.configService.get<string>(
+        'sendgrid.orderConfirmedTemplateId',
+      );
+      const fromEmail = this.configService.get<string>('sendgrid.fromEmail');
+      const fromName =
+        this.configService.get<string>('sendgrid.fromName') || '0xMart';
+      const frontendUrl =
+        this.configService.get<string>('frontend.url') || 'https://oxmart.com';
+
+      if (!templateId || !fromEmail) {
+        this.logger.error(
+          '❌ Missing SendGrid configuration: fromEmail or orderConfirmedTemplateId.',
+        );
+        return;
+      }
+
+      const msg = {
+        to: email,
+        from: { email: fromEmail, name: fromName },
+        templateId,
+        dynamicTemplateData: {
+          first_name: orderData.firstName,
+          order_number: orderData.orderNumber,
+          order_items: orderData.orderItems,
+          total_amount: orderData.totalAmount,
+          stablecoin: orderData.stablecoin,
+          transaction_hash: orderData.transactionHash,
+          shipping_address: orderData.shippingAddress,
+          estimated_delivery: orderData.estimatedDelivery || 'To be determined',
+          order_url: `${frontendUrl}/orders/${orderData.orderNumber}`,
+        },
+      };
+
+      await sgMail.send(msg);
+      this.logger.log(
+        `✅ Order confirmed email sent to ${email} (Order: ${orderData.orderNumber})`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `❌ Failed to send order confirmed email: ${error.message}`,
+      );
+    }
+  }
+
+  async sendOrderShippedEmail(
+    email: string,
+    orderData: {
+      firstName: string;
+      orderNumber: string;
+      trackingNumber: string;
+      carrier: string;
+      trackingUrl?: string;
+      estimatedDelivery?: string;
+      shippingAddress: string;
+    },
+  ): Promise<void> {
+    const apiKey = this.configService.get<string>('sendgrid.apiKey');
+    if (!apiKey) {
+      this.logger.warn(
+        `SendGrid not configured. Would send order shipped email to ${email}`,
+      );
+      return;
+    }
+
+    try {
+      const templateId = this.configService.get<string>(
+        'sendgrid.orderShippedTemplateId',
+      );
+      const fromEmail = this.configService.get<string>('sendgrid.fromEmail');
+      const fromName =
+        this.configService.get<string>('sendgrid.fromName') || '0xMart';
+      const frontendUrl =
+        this.configService.get<string>('frontend.url') || 'https://oxmart.com';
+
+      if (!templateId || !fromEmail) {
+        this.logger.error(
+          '❌ Missing SendGrid configuration: fromEmail or orderShippedTemplateId.',
+        );
+        return;
+      }
+
+      const msg = {
+        to: email,
+        from: { email: fromEmail, name: fromName },
+        templateId,
+        dynamicTemplateData: {
+          first_name: orderData.firstName,
+          order_number: orderData.orderNumber,
+          tracking_number: orderData.trackingNumber,
+          carrier: orderData.carrier,
+          tracking_url: orderData.trackingUrl || '#',
+          estimated_delivery: orderData.estimatedDelivery || 'To be determined',
+          shipping_address: orderData.shippingAddress,
+          order_url: `${frontendUrl}/orders/${orderData.orderNumber}`,
+        },
+      };
+
+      await sgMail.send(msg);
+      this.logger.log(
+        `✅ Order shipped email sent to ${email} (Order: ${orderData.orderNumber})`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `❌ Failed to send order shipped email: ${error.message}`,
+      );
+    }
+  }
 }

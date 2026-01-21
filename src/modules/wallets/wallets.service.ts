@@ -30,6 +30,14 @@ export class WalletsService {
   async createWallet(userId: string, createWalletDto: CreateWalletDto) {
     const { stablecoinType, network } = createWalletDto;
 
+    // TON wallets are not supported for deposit addresses
+    // TON payments are handled via Telegram mini app with smart contracts
+    if (network === 'TON') {
+      throw new BadRequestException(
+        'TON wallets are not supported. TON payments are processed via Telegram mini app with smart contract integration.',
+      );
+    }
+
     // Check if wallet already exists
     const existingWallet = await this.prisma.wallet.findUnique({
       where: {
@@ -52,6 +60,8 @@ export class WalletsService {
 
     let address: string;
 
+    let encryptedPrivateKey: string | undefined;
+
     if (isEVM) {
       // Check if user already has an EVM wallet and reuse its address
       const existingEvmWallet = await this.prisma.wallet.findFirst({
@@ -62,8 +72,9 @@ export class WalletsService {
       });
 
       if (existingEvmWallet) {
-        // Reuse existing EVM address
+        // Reuse existing EVM address and private key
         address = existingEvmWallet.depositAddress;
+        encryptedPrivateKey = existingEvmWallet.encryptedPrivateKey || undefined;
         this.logger.log(
           `Reusing existing EVM address for user ${userId}: ${address}`,
         );
@@ -76,6 +87,18 @@ export class WalletsService {
           network,
         );
         address = generated.address;
+
+        // Encrypt private key for storage (only for non-EVM or new EVM wallets)
+        try {
+          encryptedPrivateKey = await this.addressGenerator.encryptPrivateKey(
+            generated.privateKey,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Failed to encrypt private key for ${network} wallet: ${error.message}`,
+          );
+        }
+
         this.logger.log(
           `Generated new EVM address for user ${userId}: ${address}`,
         );
@@ -89,6 +112,18 @@ export class WalletsService {
         network,
       );
       address = generated.address;
+
+      // Encrypt private key for storage
+      try {
+        encryptedPrivateKey = await this.addressGenerator.encryptPrivateKey(
+          generated.privateKey,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to encrypt private key for ${network} wallet: ${error.message}`,
+        );
+      }
+
       this.logger.log(
         `Generated new ${network} address for user ${userId}: ${address}`,
       );
@@ -101,6 +136,7 @@ export class WalletsService {
         stablecoinType,
         network,
         depositAddress: address,
+        encryptedPrivateKey,
         balance: 0,
         lockedBalance: 0,
       },

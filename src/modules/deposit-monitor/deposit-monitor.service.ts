@@ -6,6 +6,8 @@ import { EmailService } from '../auth/services/email.service';
 import { BigNumber, BytesLike, ethers } from 'ethers';
 import { NetworkType, StablecoinType, TransactionStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import { AddressGeneratorService } from '../wallets/services/address-generator.service';
+import { ConfigService } from '@nestjs/config';
 
 interface TokenConfig {
   address: string;
@@ -227,10 +229,14 @@ export class DepositMonitorService {
     private prisma: PrismaService,
     private blockchain: BlockchainService,
     private emailService: EmailService,
+    private addressGenerator: AddressGeneratorService,
+    private configService: ConfigService,
   ) {}
 
+  // Automatic deposit monitoring disabled - users can refresh manually via refresh button
+  // Re-enable by uncommenting the @Cron decorator below
   // Run every 30 seconds
-  @Cron('*/30 * * * * *')
+  // @Cron('*/30 * * * * *')
   async monitorDeposits() {
     if (this.isMonitoring) {
       this.logger.debug('Monitor already running, skipping...');
@@ -499,9 +505,41 @@ export class DepositMonitorService {
       return;
     }
 
-    const provider = this.blockchain.getProvider(deposit.network);
-    const currentBlock = await provider.getBlockNumber();
-    const confirmations = currentBlock - Number(deposit.blockNumber);
+    let confirmations = 0;
+
+    // Route to appropriate service based on network type
+    if (deposit.network === 'SUI') {
+      const suiService = this.blockchain.getSuiService();
+      if (!suiService.isConfigured()) {
+        this.logger.warn('SUI service not configured, use the public rpc url.');
+        return;
+      }
+      // For SUI, get current checkpoint
+      const currentCheckpoint = await suiService.getCurrentCheckpoint();
+      confirmations = currentCheckpoint - Number(deposit.blockNumber);
+    } else if (deposit.network === 'SOLANA') {
+      const solanaService = this.blockchain.getSolanaService();
+      if (!solanaService.isConfigured()) {
+        this.logger.warn('Solana service not configured');
+        return;
+      }
+      // For Solana, get current slot
+      const currentSlot = await solanaService.getCurrentSlot();
+      confirmations = currentSlot - Number(deposit.blockNumber);
+    } else if (deposit.network === 'TON') {
+      const tonService = this.blockchain.getTonService();
+      if (!tonService.isConfigured()) {
+        this.logger.warn('TON service not configured');
+        return;
+      }
+      // For TON, confirmations are instant once transaction is in blockchain
+      confirmations = deposit.requiredConfirms; // Auto-confirm TON transactions
+    } else {
+      // EVM networks (Ethereum, Polygon, BSC, etc.)
+      const provider = this.blockchain.getProvider(deposit.network);
+      const currentBlock = await provider.getBlockNumber();
+      confirmations = currentBlock - Number(deposit.blockNumber);
+    }
 
     // Update confirmations
     await this.prisma.deposit.update({
@@ -583,6 +621,16 @@ export class DepositMonitorService {
     this.logger.log(
       `Deposit confirmed and credited: ${deposit.amount} ${deposit.wallet.stablecoinType} to user ${deposit.wallet.user.email}`,
     );
+
+    // Trigger sweep for SUI deposits
+    if (deposit.network === 'SUI') {
+      await this.sweepSuiDeposit(deposit);
+    }
+
+    // Trigger sweep for Solana deposits
+    if (deposit.network === 'SOLANA') {
+      await this.sweepSolanaDeposit(deposit);
+    }
   }
 
   private async sendDepositNotification(deposit: any) {
@@ -1194,6 +1242,337 @@ export class DepositMonitorService {
       this.logger.error(
         `Error checking SUI wallet ${depositAddress}: ${error.message}`,
       );
+    }
+  }
+
+  // ============================================
+  // SUI AUTOMATIC SWEEP
+  // ============================================
+
+  /**
+   * Sweep SUI deposits from user's deposit address to hot wallet
+   * Called automatically after deposit confirmation
+   */
+  private async sweepSuiDeposit(deposit: any) {
+    const wallet = deposit.wallet;
+
+    this.logger.log(
+      `Initiating SUI sweep for deposit ${deposit.id} from wallet ${wallet.id}`,
+    );
+
+    try {
+      // Get SUI hot wallet address from config
+      const hotWalletAddress = this.configService.get<string>(
+        'blockchain.suiHotWallet',
+      );
+
+      if (!hotWalletAddress) {
+        this.logger.error(
+          'SUI hot wallet address not configured. Set SUI_HOT_WALLET_ADDRESS in environment.',
+        );
+        return;
+      }
+
+      // Check if wallet has encrypted private key
+      if (!wallet.encryptedPrivateKey) {
+        this.logger.error(
+          `Wallet ${wallet.id} does not have encrypted private key stored. Cannot sweep.`,
+        );
+        return;
+      }
+
+      // Decrypt private key
+      let privateKey: string;
+      try {
+        privateKey = await this.addressGenerator.decryptPrivateKey(
+          wallet.encryptedPrivateKey,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to decrypt private key for wallet ${wallet.id}: ${error.message}`,
+        );
+        return;
+      }
+
+      // Get token config for coin type
+      const tokenConfig = this.tokenAddresses[wallet.network]?.[
+        wallet.stablecoinType
+      ];
+      if (!tokenConfig || tokenConfig.address === '0x0000000000000000000000000000000000000000') {
+        this.logger.warn(
+          `Token ${wallet.stablecoinType} not configured for ${wallet.network}`,
+        );
+        return;
+      }
+
+      // Create sweep transaction record
+      const sweepTx = await this.prisma.sweepTransaction.create({
+        data: {
+          walletId: wallet.id,
+          depositId: deposit.id,
+          fromAddress: wallet.depositAddress,
+          toAddress: hotWalletAddress,
+          amount: deposit.amount,
+          stablecoinType: wallet.stablecoinType,
+          network: wallet.network,
+          status: TransactionStatus.PENDING,
+        },
+      });
+
+      this.logger.log(
+        `Created sweep transaction ${sweepTx.id} for deposit ${deposit.id}`,
+      );
+
+      // Execute sweep transaction
+      const suiService = this.blockchain.getSuiService();
+      const result = await suiService.sweepCoins(
+        privateKey,
+        hotWalletAddress,
+        tokenConfig.address,
+      );
+
+      if (result.success && result.digest) {
+        // Update sweep transaction as completed
+        await this.prisma.sweepTransaction.update({
+          where: { id: sweepTx.id },
+          data: {
+            status: TransactionStatus.COMPLETED,
+            txHash: result.digest,
+            gasUsed: result.gasFee,
+            gasFee: new Decimal(result.gasFee).div(1e9), // Convert MIST to SUI
+            completedAt: new Date(),
+          },
+        });
+
+        this.logger.log(
+          `✅ Sweep successful! ${result.amount} swept to hot wallet. TX: ${result.digest}`,
+        );
+
+        // Create audit log
+        await this.prisma.auditLog.create({
+          data: {
+            userId: wallet.userId,
+            action: 'ADMIN_ACTION',
+            entityType: 'sweep_transaction',
+            entityId: sweepTx.id,
+            metadata: {
+              depositId: deposit.id,
+              amount: result.amount,
+              txHash: result.digest,
+              gasFee: result.gasFee,
+              hotWallet: hotWalletAddress,
+            },
+          },
+        });
+      } else {
+        // Sweep failed
+        await this.prisma.sweepTransaction.update({
+          where: { id: sweepTx.id },
+          data: {
+            status: TransactionStatus.FAILED,
+            failureReason: 'Sweep transaction returned failure status',
+            retryCount: { increment: 1 },
+          },
+        });
+
+        this.logger.error(
+          `Sweep transaction failed for deposit ${deposit.id}`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error during SUI sweep for deposit ${deposit.id}: ${error.message}`,
+      );
+
+      // Update sweep transaction as failed
+      try {
+        const existingSweepTx = await this.prisma.sweepTransaction.findFirst({
+          where: { depositId: deposit.id },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        if (existingSweepTx) {
+          await this.prisma.sweepTransaction.update({
+            where: { id: existingSweepTx.id },
+            data: {
+              status: TransactionStatus.FAILED,
+              failureReason: error.message,
+              retryCount: { increment: 1 },
+            },
+          });
+        }
+      } catch (updateError) {
+        this.logger.error(
+          `Failed to update sweep transaction: ${updateError.message}`,
+        );
+      }
+    }
+  }
+
+  // ============================================
+  // SOLANA AUTOMATIC SWEEP
+  // ============================================
+
+  /**
+   * Sweep Solana SPL token deposits from user's deposit address to hot wallet
+   * Called automatically after deposit confirmation
+   */
+  private async sweepSolanaDeposit(deposit: any) {
+    const wallet = deposit.wallet;
+
+    this.logger.log(
+      `Initiating Solana sweep for deposit ${deposit.id} from wallet ${wallet.id}`,
+    );
+
+    try {
+      // Get Solana hot wallet address from config
+      const hotWalletAddress = this.configService.get<string>(
+        'blockchain.solanaHotWallet',
+      );
+
+      if (!hotWalletAddress) {
+        this.logger.error(
+          'Solana hot wallet address not configured. Set SOLANA_HOT_WALLET_ADDRESS in environment.',
+        );
+        return;
+      }
+
+      // Check if wallet has encrypted private key
+      if (!wallet.encryptedPrivateKey) {
+        this.logger.error(
+          `Wallet ${wallet.id} does not have encrypted private key stored. Cannot sweep.`,
+        );
+        return;
+      }
+
+      // Decrypt private key
+      let privateKey: string;
+      try {
+        privateKey = await this.addressGenerator.decryptPrivateKey(
+          wallet.encryptedPrivateKey,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to decrypt private key for wallet ${wallet.id}: ${error.message}`,
+        );
+        return;
+      }
+
+      // Get token config for SPL token mint address
+      const tokenConfig = this.tokenAddresses[wallet.network]?.[
+        wallet.stablecoinType
+      ];
+      if (
+        !tokenConfig ||
+        tokenConfig.address === '0x0000000000000000000000000000000000000000'
+      ) {
+        this.logger.warn(
+          `Token ${wallet.stablecoinType} not configured for ${wallet.network}`,
+        );
+        return;
+      }
+
+      // Create sweep transaction record
+      const sweepTx = await this.prisma.sweepTransaction.create({
+        data: {
+          walletId: wallet.id,
+          depositId: deposit.id,
+          fromAddress: wallet.depositAddress,
+          toAddress: hotWalletAddress,
+          amount: deposit.amount,
+          stablecoinType: wallet.stablecoinType,
+          network: wallet.network,
+          status: TransactionStatus.PENDING,
+        },
+      });
+
+      this.logger.log(
+        `Created sweep transaction ${sweepTx.id} for deposit ${deposit.id}`,
+      );
+
+      // Execute sweep transaction
+      const solanaService = this.blockchain.getSolanaService();
+      const result = await solanaService.sweepTokens(
+        privateKey,
+        hotWalletAddress,
+        tokenConfig.address, // SPL token mint address
+      );
+
+      if (result.success && result.signature) {
+        // Update sweep transaction as completed
+        await this.prisma.sweepTransaction.update({
+          where: { id: sweepTx.id },
+          data: {
+            status: TransactionStatus.COMPLETED,
+            txHash: result.signature,
+            gasUsed: result.gasFee,
+            gasFee: new Decimal(result.gasFee).div(1e9), // Convert lamports to SOL
+            completedAt: new Date(),
+          },
+        });
+
+        this.logger.log(
+          `✅ Sweep successful! ${result.amount} swept to hot wallet. Signature: ${result.signature}`,
+        );
+
+        // Create audit log
+        await this.prisma.auditLog.create({
+          data: {
+            userId: wallet.userId,
+            action: 'ADMIN_ACTION',
+            entityType: 'sweep_transaction',
+            entityId: sweepTx.id,
+            metadata: {
+              depositId: deposit.id,
+              amount: result.amount,
+              signature: result.signature,
+              gasFee: result.gasFee,
+              hotWallet: hotWalletAddress,
+            },
+          },
+        });
+      } else {
+        // Sweep failed
+        await this.prisma.sweepTransaction.update({
+          where: { id: sweepTx.id },
+          data: {
+            status: TransactionStatus.FAILED,
+            failureReason: 'Sweep transaction returned failure status',
+            retryCount: { increment: 1 },
+          },
+        });
+
+        this.logger.error(
+          `Sweep transaction failed for deposit ${deposit.id}`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error during Solana sweep for deposit ${deposit.id}: ${error.message}`,
+      );
+
+      // Update sweep transaction as failed
+      try {
+        const existingSweepTx = await this.prisma.sweepTransaction.findFirst({
+          where: { depositId: deposit.id },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        if (existingSweepTx) {
+          await this.prisma.sweepTransaction.update({
+            where: { id: existingSweepTx.id },
+            data: {
+              status: TransactionStatus.FAILED,
+              failureReason: error.message,
+              retryCount: { increment: 1 },
+            },
+          });
+        }
+      } catch (updateError) {
+        this.logger.error(
+          `Failed to update sweep transaction: ${updateError.message}`,
+        );
+      }
     }
   }
 }

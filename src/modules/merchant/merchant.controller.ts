@@ -30,6 +30,41 @@ export class MerchantController {
     return this.merchantService.getMerchantStats(user.id);
   }
 
+  @Get('revenue')
+  @ApiOperation({ summary: 'Get merchant revenue analytics' })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    type: String,
+    description: 'Start date for revenue analysis (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    type: String,
+    description: 'End date for revenue analysis (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'groupBy',
+    required: false,
+    enum: ['day', 'week', 'month'],
+    description: 'Group revenue by day, week, or month (default: month)',
+  })
+  @ApiResponse({ status: 200, description: 'Returns revenue analytics' })
+  @ApiResponse({ status: 404, description: 'Merchant profile not found' })
+  async getRevenue(
+    @CurrentUser() user: { id: string },
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('groupBy') groupBy?: 'day' | 'week' | 'month',
+  ) {
+    return this.merchantService.getMerchantRevenue(user.id, {
+      startDate,
+      endDate,
+      groupBy,
+    });
+  }
+
   @Get('orders')
   @ApiOperation({ summary: 'Get merchant orders' })
   @ApiQuery({

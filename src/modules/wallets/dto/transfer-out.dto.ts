@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { NetworkType, StablecoinType } from '@prisma/client';
-import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsString, Matches } from 'class-validator';
 
 export class TransferOutDto {
   @ApiProperty({ enum: StablecoinType })
@@ -18,8 +18,14 @@ export class TransferOutDto {
   @IsNotEmpty()
   toAddress: string;
 
-  @ApiProperty({ example: '100.50' })
+  @ApiProperty({
+    example: '100.50',
+    description: 'Amount to transfer in decimal format (e.g., 100.50). Up to 8 decimal places allowed.'
+  })
   @IsString()
   @IsNotEmpty()
+  @Matches(/^\d+(\.\d{1,8})?$/, {
+    message: 'Amount must be a valid positive decimal number with up to 8 decimal places (e.g., 100.50, 0.00000001)',
+  })
   amount: string;
 }

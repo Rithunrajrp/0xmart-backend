@@ -48,16 +48,18 @@ export class ProductsController {
   @ApiOperation({ summary: 'Get all products' })
   @ApiQuery({ name: 'status', required: false, enum: ProductStatus })
   @ApiQuery({ name: 'category', required: false })
+  @ApiQuery({ name: 'country', required: false, description: 'Filter by country ISO code (e.g., US, IN, GB)' })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
   @ApiResponse({ status: 200 })
   findAll(
     @Query('status') status?: ProductStatus,
     @Query('category') category?: string,
+    @Query('country') country?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.productsService.findAll({ status, category, page, limit });
+    return this.productsService.findAll({ status, category, country, page, limit });
   }
 
   @Public()
@@ -73,9 +75,14 @@ export class ProductsController {
   @ApiOperation({ summary: 'Search products' })
   @ApiQuery({ name: 'q', required: true })
   @ApiQuery({ name: 'category', required: false })
+  @ApiQuery({ name: 'country', required: false, description: 'Filter by country ISO code (e.g., US, IN, GB)' })
   @ApiResponse({ status: 200 })
-  search(@Query('q') query: string, @Query('category') category?: string) {
-    return this.productsService.searchProducts(query, { category });
+  search(
+    @Query('q') query: string,
+    @Query('category') category?: string,
+    @Query('country') country?: string,
+  ) {
+    return this.productsService.searchProducts(query, { category, country });
   }
 
   @Public()

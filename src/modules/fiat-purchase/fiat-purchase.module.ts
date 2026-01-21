@@ -5,9 +5,10 @@ import { ExchangeRateService } from './services/exchange-rate.service';
 import { StripeService } from './services/stripe.service';
 import { RazorpayService } from './services/razorpay.service';
 import { WalletsModule } from '../wallets/wallets.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [WalletsModule],
+  imports: [WalletsModule, AuthModule],
   controllers: [FiatPurchaseController],
   providers: [
     FiatPurchaseService,

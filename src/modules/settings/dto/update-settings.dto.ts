@@ -66,6 +66,33 @@ export class UpdateSettingsDto {
   fiatPurchaseEnabled?: boolean;
 
   @ApiProperty({
+    description: 'Enable or disable token swap feature',
+    example: false,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  tokenSwapEnabled?: boolean;
+
+  @ApiProperty({
+    description: 'Enable or disable API access for third-party developers',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  apiAccessEnabled?: boolean;
+
+  @ApiProperty({
+    description: 'Show or hide testnet banner',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  showTestnetBanner?: boolean;
+
+  @ApiProperty({
     description: 'Minimum withdrawal amount',
     example: 10,
     required: false,

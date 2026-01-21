@@ -88,18 +88,20 @@ model KYCDocument {
 }
 
 model Wallet {
-  id             String         @id @default(uuid())
-  userId         String
-  stablecoinType StablecoinType
-  network        NetworkType
-  depositAddress String         // Removed @unique to allow EVM address reuse
-  balance        Decimal        @default(0) @db.Decimal(20, 8)
-  lockedBalance  Decimal        @default(0) @db.Decimal(20, 8)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  deposits       Deposit[]
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  withdrawals    Withdrawal[]
+  id                   String         @id @default(uuid())
+  userId               String
+  stablecoinType       StablecoinType
+  network              NetworkType
+  depositAddress       String         // Removed @unique to allow EVM address reuse
+  encryptedPrivateKey  String?        // Encrypted private key for sweep functionality
+  balance              Decimal        @default(0) @db.Decimal(20, 8)
+  lockedBalance        Decimal        @default(0) @db.Decimal(20, 8)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  deposits             Deposit[]
+  user                 User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  withdrawals          Withdrawal[]
+  sweepTransactions    SweepTransaction[]
 
   @@unique([userId, stablecoinType, network])
   @@index([userId])
@@ -295,6 +297,35 @@ model Withdrawal {
   @@map("withdrawals")
 }
 
+model SweepTransaction {
+  id               String            @id @default(uuid())
+  walletId         String
+  depositId        String?
+  fromAddress      String            // User's deposit address
+  toAddress        String            // Hot wallet address
+  amount           Decimal           @db.Decimal(20, 8)
+  stablecoinType   StablecoinType
+  network          NetworkType
+  txHash           String?           @unique
+  gasUsed          String?
+  gasFee           Decimal?          @db.Decimal(20, 8)
+  status           TransactionStatus @default(PENDING)
+  createdAt        DateTime          @default(now())
+  processedAt      DateTime?
+  completedAt      DateTime?
+  failureReason    String?
+  retryCount       Int               @default(0)
+  maxRetries       Int               @default(3)
+  wallet           Wallet            @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([status])
+  @@index([network])
+  @@index([txHash])
+  @@index([createdAt])
+  @@map("sweep_transactions")
+}
+
 model FiatPurchase {
   id               String              @id @default(uuid())
   userId           String
@@ -440,6 +471,7 @@ model Product {
   videoUrl          String?
   weight            Decimal?          @db.Decimal(10, 2)
   hasVariants       Boolean           @default(false)
+  availableCountries String[]         @default([])
   adClicks          AdClick[]
   externalOrders    ExternalOrder[]
   favorites         Favorite[]
@@ -541,7 +573,7 @@ model ProductPrice {
   id             String         @id @default(uuid())
   productId      String
   stablecoinType StablecoinType
-  price          Decimal        @db.Decimal(20, 8)
+  price          Decimal        @db.Decimal(20, 8) // Merchant's base price (platform adds 20% markup for customers)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   product        Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -1393,6 +1425,9 @@ model SystemSettings {
   withdrawalsEnabled    Boolean  @default(true)
   depositsEnabled       Boolean  @default(true)
   fiatPurchaseEnabled   Boolean  @default(true)
+  tokenSwapEnabled      Boolean  @default(false)
+  apiAccessEnabled      Boolean  @default(true)
+  showTestnetBanner     Boolean  @default(true)
   minWithdrawalAmount   Decimal  @default(10) @db.Decimal(20, 8)
   maxWithdrawalAmount   Decimal  @default(50000) @db.Decimal(20, 8)
   withdrawalFeePercent  Decimal  @default(0) @db.Decimal(5, 2)

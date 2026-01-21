@@ -26,28 +26,31 @@ const NETWORKS = {
 // Token type configurations for different networks
 // Format: module_address::module_name::CoinType
 const TOKEN_TYPES = {
-  // Sui Testnet
+  // Sui Testnet - Use test tokens deployed on testnet
   testnet: {
-    USDT: '0x...::usdt::USDT', // Update with actual testnet addresses
-    USDC: '0x...::usdc::USDC',
-    DAI: '0x...::dai::DAI',
-    BUSD: '0x...::busd::BUSD',
+    USDT: process.env.SUI_TESTNET_USDT_ADDRESS || '0x...::usdt::USDT', // Deploy test tokens first
+    USDC: process.env.SUI_TESTNET_USDC_ADDRESS || '0x...::usdc::USDC',
+    DAI: process.env.SUI_TESTNET_DAI_ADDRESS || '0x...::dai::DAI',
+    BUSD: process.env.SUI_TESTNET_BUSD_ADDRESS || '0x...::busd::BUSD',
   },
-  // Sui Mainnet
+  // Sui Mainnet - Official stablecoin addresses
   mainnet: {
-    USDT: '0x...::usdt::USDT', // Update with actual mainnet addresses
-    USDC: '0x...::usdc::USDC',
-    DAI: '0x...::dai::DAI',
-    BUSD: '0x...::busd::BUSD',
+    // Official USDC from Circle on Sui Mainnet
+    USDC: process.env.SUI_MAINNET_USDC_ADDRESS || '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN',
+    // Official USDT (Tether) on Sui Mainnet
+    USDT: process.env.SUI_MAINNET_USDT_ADDRESS || '0xc060006111016b8a020ad5b33834984a437aaa7d3c74c18e09a95d48aceab08c::coin::COIN',
+    // DAI and BUSD - Use official addresses from environment
+    DAI: process.env.SUI_MAINNET_DAI_ADDRESS || '0x0000000000000000000000000000000000000000::dai::DAI',
+    BUSD: process.env.SUI_MAINNET_BUSD_ADDRESS || '0x0000000000000000000000000000000000000000::busd::BUSD',
   },
-  // Sui Devnet
+  // Sui Devnet - Use devnet test tokens
   devnet: {
-    USDT: '0x...::usdt::USDT',
-    USDC: '0x...::usdc::USDC',
-    DAI: '0x...::dai::DAI',
-    BUSD: '0x...::busd::BUSD',
+    USDT: process.env.SUI_DEVNET_USDT_ADDRESS || '0x...::usdt::USDT',
+    USDC: process.env.SUI_DEVNET_USDC_ADDRESS || '0x...::usdc::USDC',
+    DAI: process.env.SUI_DEVNET_DAI_ADDRESS || '0x...::dai::DAI',
+    BUSD: process.env.SUI_DEVNET_BUSD_ADDRESS || '0x...::busd::BUSD',
   },
-  // Local testing
+  // Local testing - Deploy mock tokens locally
   localnet: {
     USDT: '0x...::usdt::USDT',
     USDC: '0x...::usdc::USDC',

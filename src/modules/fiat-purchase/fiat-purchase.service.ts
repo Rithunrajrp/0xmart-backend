@@ -9,6 +9,7 @@ import { WalletsService } from '../wallets/wallets.service';
 import { ExchangeRateService } from './services/exchange-rate.service';
 import { StripeService } from './services/stripe.service';
 import { RazorpayService } from './services/razorpay.service';
+import { EmailService } from '../auth/services/email.service';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
 import {
   FiatPaymentStatus,
@@ -28,6 +29,7 @@ export class FiatPurchaseService {
     private exchangeRateService: ExchangeRateService,
     private stripeService: StripeService,
     private razorpayService: RazorpayService,
+    private emailService: EmailService,
   ) {}
 
   async createPurchase(userId: string, createPurchaseDto: CreatePurchaseDto) {
@@ -251,7 +253,7 @@ export class FiatPurchaseService {
     });
 
     // Update transaction
-    await this.prisma.transaction.updateMany({
+    const transactions = await this.prisma.transaction.updateMany({
       where: {
         userId: purchase.userId,
         metadata: {
@@ -268,6 +270,58 @@ export class FiatPurchaseService {
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       `Purchase completed: ${purchase.id}, credited ${purchase.stablecoinAmount} ${purchase.stablecoinType}`,
     );
+
+    // Send transaction notification email (async, non-blocking)
+    this.sendFiatPurchaseEmail(purchase).catch((error) => {
+      this.logger.error(
+        `Failed to send fiat purchase email for purchase ${purchase.id}`,
+        error,
+      );
+    });
+  }
+
+  /**
+   * Send fiat purchase transaction notification email
+   */
+  private async sendFiatPurchaseEmail(purchase: any) {
+    try {
+      // Get user details
+      const user = await this.prisma.user.findUnique({
+        where: { id: purchase.userId },
+      });
+
+      if (!user?.email) {
+        this.logger.warn(
+          `No email found for user ${purchase.userId}, skipping fiat purchase email`,
+        );
+        return;
+      }
+
+      // Get the transaction ID
+      const transaction = await this.prisma.transaction.findFirst({
+        where: {
+          userId: purchase.userId,
+          type: TransactionType.FIAT_PURCHASE,
+          metadata: {
+            path: ['providerTxId'],
+            equals: purchase.providerTxId,
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      await this.emailService.sendTransactionEmail(user.email, {
+        firstName: user.email.split('@')[0],
+        transactionType: 'Fiat Purchase',
+        amount: purchase.stablecoinAmount.toString(),
+        currency: purchase.stablecoinType,
+        transactionId: transaction?.id || purchase.id,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Error in sendFiatPurchaseEmail: ${error.message}`,
+      );
+    }
   }
 
   private async failPurchase(

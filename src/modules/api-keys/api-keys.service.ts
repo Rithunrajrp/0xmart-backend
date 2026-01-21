@@ -6,6 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { SettingsService } from '../settings/settings.service';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
@@ -51,7 +52,10 @@ export class ApiKeysService {
     },
   };
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private settingsService: SettingsService,
+  ) {}
 
   /**
    * Generate a new API key
@@ -133,6 +137,14 @@ export class ApiKeysService {
     // Check user status
     if (user.status !== 'ACTIVE') {
       throw new BadRequestException('User account is not active');
+    }
+
+    // Check if API access is enabled
+    const isApiAccessEnabled = await this.settingsService.isApiAccessEnabled();
+    if (!isApiAccessEnabled) {
+      throw new ForbiddenException(
+        'API access is currently disabled. Please contact support or try again later.',
+      );
     }
 
     // Validate supported networks

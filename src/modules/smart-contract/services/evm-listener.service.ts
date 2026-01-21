@@ -54,7 +54,7 @@ export class EvmListenerService implements OnModuleInit, OnModuleDestroy {
   private reconnectAttempts: Map<NetworkType, number> = new Map();
   private maxReconnectAttempts = 5;
   private reconnectDelay = 5000; // 5 seconds
-  private pollingInterval = 15000; // 15 seconds - increased to reduce RPC requests
+  private pollingInterval = 45000; // 45 seconds - conservative for free testnet RPCs
 
   constructor(
     private readonly prisma: PrismaService,
@@ -77,7 +77,19 @@ export class EvmListenerService implements OnModuleInit, OnModuleDestroy {
   private async initializeListeners() {
     const networks = Object.values(NetworkType).filter(isEvmNetwork);
 
-    for (const network of networks) {
+    // Filter to only mainnets if ENABLE_TESTNET_LISTENERS is not set
+    const enableTestnets = this.configService.get('ENABLE_TESTNET_LISTENERS') === 'true';
+    const testnetNames = ['sepolia', 'amoy', 'bsc-testnet', 'arbitrum-sepolia', 'optimism-sepolia', 'avalanche-fuji', 'base-sepolia'];
+
+    const networksToMonitor = networks.filter(network => {
+      if (!enableTestnets && testnetNames.includes(network)) {
+        this.logger.log(`⏸️  Skipping testnet ${network} (set ENABLE_TESTNET_LISTENERS=true to enable)`);
+        return false;
+      }
+      return true;
+    });
+
+    for (const network of networksToMonitor) {
       try {
         await this.setupNetworkListener(network);
       } catch (error) {
@@ -204,19 +216,20 @@ export class EvmListenerService implements OnModuleInit, OnModuleDestroy {
           error.code === -32005 ||
           error.code === -32600
         ) {
-          this.logger.warn(
-            `⚠️  Rate limit hit for ${network}, slowing down polling...`,
-          );
-          // Increase polling interval temporarily for this network
+          // Increase polling interval more aggressively for this network
           const currentProvider = this.providers.get(network);
           if (currentProvider) {
+            const oldInterval = currentProvider.pollingInterval;
             currentProvider.pollingInterval = Math.min(
-              currentProvider.pollingInterval * 1.5,
-              60000,
-            ); // Max 60 seconds
-            this.logger.debug(
-              `Increased polling interval for ${network} to ${currentProvider.pollingInterval}ms`,
+              currentProvider.pollingInterval * 2, // Double the interval instead of 1.5x
+              120000, // Max 2 minutes
             );
+            // Only log when interval changes significantly
+            if (currentProvider.pollingInterval !== oldInterval) {
+              this.logger.warn(
+                `⚠️  Rate limit hit for ${network}, increased polling to ${currentProvider.pollingInterval / 1000}s`,
+              );
+            }
           }
         } else {
           this.logger.error(`Provider error for ${network}: ${error.message}`);

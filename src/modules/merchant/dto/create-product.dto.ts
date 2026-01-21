@@ -1,5 +1,5 @@
 
-import { IsString, IsNotEmpty, IsOptional, IsNumber, IsArray, IsBoolean, ValidateNested, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsArray, IsBoolean, ValidateNested, Min, Matches, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -9,9 +9,15 @@ class PriceDto {
   @IsNotEmpty()
   currency: string;
 
-  @ApiProperty()
-  @IsString() // Receiving as string from frontend to handle decimals precisely, or number if parsed
+  @ApiProperty({
+    example: '99.99',
+    description: 'Price in decimal format (e.g., 99.99). Up to 8 decimal places allowed.'
+  })
+  @IsString()
   @IsNotEmpty()
+  @Matches(/^\d+(\.\d{1,8})?$/, {
+    message: 'Price must be a valid positive decimal number with up to 8 decimal places (e.g., 99.99, 0.00000001)',
+  })
   price: string;
 }
 
@@ -24,11 +30,17 @@ export class CreateMerchantProductDto {
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()
+  @MaxLength(500, {
+    message: 'Short description cannot exceed 500 characters',
+  })
   shortDescription?: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: '1kg bag of premium arabica coffee beans' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(5000, {
+    message: 'Description cannot exceed 5000 characters',
+  })
   description: string;
 
   @ApiProperty()
@@ -67,4 +79,15 @@ export class CreateMerchantProductDto {
   @IsBoolean()
   @IsOptional()
   isDigital?: boolean;
+
+  @ApiProperty({
+    example: ['US', 'IN', 'GB', 'CA'],
+    description: 'Array of ISO 3166-1 alpha-2 country codes where the product can be shipped',
+    required: false,
+    type: [String]
+  })
+  @IsArray()
+  @IsOptional()
+  @IsString({ each: true })
+  availableCountries?: string[];
 }
