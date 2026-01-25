@@ -6,6 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 0xMart Backend is a NestJS v11 backend for a multi-currency stablecoin commerce platform. It supports cryptocurrency wallet management, fiat-to-crypto purchases (Stripe/Razorpay), automated deposit/withdrawal processing, KYC verification, and e-commerce functionality.
 
+**Production API:** `https://api.0xmart.com/api/v1`
+**Development:** `http://localhost:8000/api/v1`
+
 ## Commands
 
 ```bash
@@ -207,6 +210,41 @@ External developers can integrate crypto payments with **3 lines of code** using
 
 ### Webhook Events
 Developers receive webhooks for: `PAYMENT_INITIATED`, `PAYMENT_DETECTED`, `PAYMENT_CONFIRMED`, `PAYMENT_FAILED`, `ORDER_SHIPPED`, `ORDER_DELIVERED`
+
+## Deployment
+
+### Production Deployment (Vercel)
+
+The backend is deployed to **Vercel** at subdomain `api.0xmart.com`.
+
+**Quick Deploy:**
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Login and deploy
+vercel login
+vercel --prod
+```
+
+**Configuration Files:**
+- `vercel.json` - Vercel deployment configuration
+- `.vercelignore` - Files excluded from deployment
+- `DEPLOYMENT_QUICKSTART.md` - 10-minute deployment guide
+- `VERCEL_DEPLOYMENT.md` - Complete deployment documentation
+
+**Key Requirements:**
+- PostgreSQL database (Vercel Postgres, Supabase, or Neon)
+- All environment variables configured in Vercel dashboard
+- Custom domain `api.0xmart.com` configured with DNS CNAME
+- Database migrations run: `npx prisma migrate deploy`
+
+**Post-Deployment:**
+1. Verify API: `https://api.0xmart.com/api/v1/health`
+2. Update webhook URLs in Stripe/Razorpay/Sumsub dashboards
+3. Update frontend `NEXT_PUBLIC_API_BASE_URL=https://api.0xmart.com/api/v1`
+
+See **[DEPLOYMENT_QUICKSTART.md](./DEPLOYMENT_QUICKSTART.md)** for step-by-step guide.
 
 ## Code Conventions
 

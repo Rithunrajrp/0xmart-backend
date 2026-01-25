@@ -21,10 +21,20 @@ async function bootstrap() {
 
   // CORS - Allow multiple origins including subdomains
   const allowedOrigins = [
+    // Local development
     'http://localhost:3000',
+    'http://localhost:5173', // Mini app
     'http://superadmin.localhost:3000',
     'http://merchant.localhost:3000',
     'http://admin.localhost:3000',
+    // Production domains
+    'https://0xmart.com',
+    'https://www.0xmart.com',
+    'https://admin.0xmart.com',
+    'https://merchant.0xmart.com',
+    'https://superadmin.0xmart.com',
+    'https://app.0xmart.com',
+    // Custom frontend URL
     process.env.FRONTEND_URL,
   ].filter(Boolean);
 
@@ -35,10 +45,11 @@ async function bootstrap() {
         return callback(null, true);
       }
 
-      // Check if origin is in allowed list or matches localhost pattern
+      // Check if origin is in allowed list or matches localhost/0xmart.com pattern
       if (
         allowedOrigins.includes(origin) ||
-        origin.match(/^http:\/\/(.*\.)?localhost:3000$/)
+        origin.match(/^http:\/\/(.*\.)?localhost:3000$/) ||
+        origin.match(/^https:\/\/(.*\.)?0xmart\.com$/)
       ) {
         callback(null, true);
       } else {

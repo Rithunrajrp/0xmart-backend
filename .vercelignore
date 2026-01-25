@@ -1,0 +1,53 @@
+# Vercel Ignore File
+# Files and directories to exclude from Vercel deployment
+
+# Development
+node_modules
+.env
+.env.local
+.env.*.local
+*.log
+
+# Testing
+test
+coverage
+*.spec.ts
+*.test.ts
+
+# Documentation
+*.md
+!README.md
+docs
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Build artifacts (will be built on Vercel)
+src
+tsconfig.json
+tsconfig.build.json
+nest-cli.json
+
+# Prisma (keep schema and migrations, exclude generated client)
+node_modules/@prisma
+node_modules/.prisma
+
+# Scripts
+scripts
+
+# Smart Contracts (not needed for API deployment)
+smart-contracts
+hardhat.config.js
+foundry.toml
+
+# Temporary files
+tmp
+temp
+*.tmp
