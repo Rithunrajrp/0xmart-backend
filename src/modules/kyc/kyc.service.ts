@@ -8,7 +8,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { S3Service } from '../../common/services/s3.service';
 import { SubmitKycDto } from './dto/submit-kyc.dto';
 import { ReviewDocumentDto } from './dto/review-document.dto';
-import { DocumentStatus, DocumentType, KYCStatus } from '@prisma/client';
+import { DocumentStatus, DocumentType, KYCStatus, AuditAction } from '@prisma/client';
 import { EmailService } from '../auth/services/email.service';
 
 @Injectable()
@@ -54,7 +54,7 @@ export class KycService {
     await this.prisma.auditLog.create({
       data: {
         userId,
-        action: 'KYC_INITIATED',
+        action: AuditAction.KYC_INITIATED,
         entityType: 'user',
         entityId: userId,
         metadata: submitKycDto as unknown as Record<string, any>,
@@ -136,7 +136,7 @@ export class KycService {
     await this.prisma.auditLog.create({
       data: {
         userId,
-        action: 'KYC_DOCUMENT_UPLOADED',
+        action: AuditAction.KYC_DOCUMENT_UPLOADED,
         entityType: 'kyc_document',
         entityId: kycDocument.id,
         metadata: { documentType },
@@ -346,7 +346,7 @@ export class KycService {
     );
 
     // Update user KYC status
-    let userKycStatus = KYCStatus.PENDING;
+    let userKycStatus: KYCStatus = KYCStatus.PENDING;
     if (allApproved && allDocuments.length >= 3) {
       // Require at least 3 documents
       userKycStatus = KYCStatus.APPROVED;
@@ -387,7 +387,7 @@ export class KycService {
     await this.prisma.auditLog.create({
       data: {
         userId: document.userId,
-        action: reviewDto.approve ? 'KYC_DOCUMENT_APPROVED' : 'KYC_DOCUMENT_REJECTED',
+        action: reviewDto.approve ? AuditAction.KYC_DOCUMENT_APPROVED : AuditAction.KYC_DOCUMENT_REJECTED,
         entityType: 'kyc_document',
         entityId: documentId,
         metadata: {
@@ -454,7 +454,7 @@ export class KycService {
     await this.prisma.auditLog.create({
       data: {
         userId,
-        action: 'KYC_APPROVED',
+        action: AuditAction.KYC_APPROVED,
         entityType: 'user',
         entityId: userId,
         metadata: { manualApproval: true, reviewedBy },
@@ -508,7 +508,7 @@ export class KycService {
     await this.prisma.auditLog.create({
       data: {
         userId,
-        action: 'KYC_REJECTED',
+        action: AuditAction.KYC_REJECTED,
         entityType: 'user',
         entityId: userId,
         metadata: { manualRejection: true, reviewedBy, reason },
