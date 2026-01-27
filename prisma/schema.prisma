@@ -15,8 +15,10 @@ model User {
   role              UserRole      @default(USER)
   status            UserStatus    @default(ACTIVE)
   kycStatus         KYCStatus     @default(NOT_STARTED)
-  kycProviderId     String?
-  kycData           Json?
+  kycSubmittedAt    DateTime?
+  kycApprovedAt     DateTime?
+  kycRejectedAt     DateTime?
+  kycRejectionReason String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   lastLoginAt       DateTime?
@@ -35,6 +37,7 @@ model User {
   employeeProfile   Employee?
   favorites         Favorite[]
   kycDocuments      KYCDocument[]
+  reviewedDocuments KYCDocument[] @relation("ReviewedDocuments")
   orders            Order[]
   sellerProfile     Seller?
   transactions      Transaction[]
@@ -72,18 +75,24 @@ model UserSession {
 }
 
 model KYCDocument {
-  id              String    @id @default(uuid())
-  userId          String
-  documentType    String
-  documentUrl     String
-  status          KYCStatus
-  submittedAt     DateTime  @default(now())
-  reviewedAt      DateTime?
-  reviewedBy      String?
-  rejectionReason String?
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String            @id @default(uuid())
+  userId            String
+  documentType      DocumentType      // ID_CARD, PASSPORT, DRIVERS_LICENSE, SELFIE, ADDRESS_PROOF
+  documentUrl       String            // S3 URL
+  backImageUrl      String?           // For two-sided documents
+  status            DocumentStatus    @default(PENDING)
+  submittedAt       DateTime          @default(now())
+  reviewedAt        DateTime?
+  reviewedBy        String?           // Admin user ID
+  rejectionReason   String?
+  metadata          Json?             // Extra data like document number, expiry, etc.
+  ocrData           Json?             // OCR extracted data (optional)
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewer          User?             @relation("ReviewedDocuments", fields: [reviewedBy], references: [id])
 
   @@index([userId])
+  @@index([status])
+  @@index([documentType])
   @@map("kyc_documents")
 }
 
@@ -1082,6 +1091,16 @@ enum KYCStatus {
   EXPIRED
 }
 
+enum DocumentType {
+  ID_CARD
+  PASSPORT
+  DRIVERS_LICENSE
+  SELFIE
+  ADDRESS_PROOF
+  UTILITY_BILL
+  BANK_STATEMENT
+}
+
 enum StablecoinType {
   USDT
   USDC
@@ -1209,6 +1228,7 @@ enum DocumentStatus {
   PENDING
   APPROVED
   REJECTED
+  EXPIRED
 }
 
 enum ProductStatus {

@@ -5,69 +5,28 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { ConfigService } from '@nestjs/config';
-import { SumsubService } from './services/sumsub.service';
-import { MockKycService } from './services/mock-kyc.service';
+import { S3Service } from '../../common/services/s3.service';
 import { SubmitKycDto } from './dto/submit-kyc.dto';
-import { KYCStatus } from '@prisma/client';
+import { ReviewDocumentDto } from './dto/review-document.dto';
+import { DocumentStatus, DocumentType, KYCStatus } from '@prisma/client';
 import { EmailService } from '../auth/services/email.service';
-
-type ApplicantCreateResult = { applicantId: string };
-type AccessTokenResult = { token: string };
-
-/**
- * Minimal interface representing the methods the KYC provider services must expose.
- * Both SumsubService and MockKycService should implement these signatures.
- */
-interface IKycProvider {
-  createApplicant(
-    userId: string,
-    email?: string | null,
-    firstName?: string | null,
-    lastName?: string | null,
-  ): Promise<ApplicantCreateResult>;
-  generateAccessToken(applicantId: string): Promise<AccessTokenResult>;
-  getApplicantStatus(
-    applicantId: string,
-  ): Promise<Record<string, unknown> | null>;
-  resetApplicant(applicantId: string): Promise<void>;
-}
-
-interface KycWebhookPayload {
-  applicantId: string;
-  reviewStatus: string; // e.g. 'approved', 'rejected', 'pending', 'completed'
-  reviewRejectType?: string | null;
-  clientComment?: string | null;
-}
 
 @Injectable()
 export class KycService {
   private readonly logger = new Logger(KycService.name);
-  private readonly useMockKyc: boolean;
 
   constructor(
     private prisma: PrismaService,
-    private configService: ConfigService,
-    private sumsubService: SumsubService,
-    private mockKycService: MockKycService,
+    private s3Service: S3Service,
     private emailService: EmailService,
   ) {
-    const appToken = this.configService.get<string>('kyc.appToken') ?? '';
-    this.useMockKyc = appToken.trim() === '';
-    if (this.useMockKyc) {
-      this.logger.warn('🧪 Using MOCK KYC service (no real verification)');
-    } else {
-      this.logger.log('✅ Using Sumsub KYC service');
-    }
+    this.logger.log('✅ Using custom KYC service with S3 storage');
   }
 
-  private getKycService(): IKycProvider {
-    return this.useMockKyc
-      ? (this.mockKycService as unknown as IKycProvider)
-      : (this.sumsubService as unknown as IKycProvider);
-  }
-
-  async initiateKyc(userId: string, submitKycDto?: SubmitKycDto) {
+  /**
+   * Initiate KYC process - User submits basic information
+   */
+  async initiateKyc(userId: string, submitKycDto: SubmitKycDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
     if (!user) {
@@ -82,193 +41,49 @@ export class KycService {
       throw new BadRequestException('KYC already approved');
     }
 
-    const kycService = this.getKycService();
-
-    try {
-      const applicantResult = await kycService.createApplicant(
-        userId,
-        user.email ?? null,
-        submitKycDto?.firstName ?? null,
-        submitKycDto?.lastName ?? null,
-      );
-
-      const applicantId = applicantResult.applicantId;
-
-      const tokenResult = await kycService.generateAccessToken(applicantId);
-      const token = tokenResult.token;
-
-      await this.prisma.user.update({
-        where: { id: userId },
-        data: {
-          kycProviderId: applicantId,
-          kycStatus: KYCStatus.PENDING,
-          kycData: submitKycDto
-            ? (submitKycDto as unknown as Record<string, any>)
-            : {},
-        },
-      });
-
-      await this.prisma.kYCDocument.create({
-        data: {
-          userId,
-          documentType: submitKycDto?.documentType ?? 'general',
-          status: KYCStatus.PENDING,
-          documentUrl: '',
-        },
-      });
-
-      await this.prisma.auditLog.create({
-        data: {
-          userId,
-          action: 'KYC_SUBMITTED',
-          entityType: 'user',
-          entityId: userId,
-          metadata: { applicantId },
-        },
-      });
-
-      this.logger.log(
-        `KYC initiated for user ${userId}, applicant: ${applicantId}`,
-      );
-
-      const sdkUrl = this.useMockKyc
-        ? `mock://kyc-verification/${applicantId}`
-        : `https://api.sumsub.com/idensic/websdk?token=${encodeURIComponent(token)}`;
-
-      return {
-        applicantId,
-        accessToken: token,
-        sdkUrl,
-        status: KYCStatus.PENDING,
-        expiresAt: new Date(Date.now() + 3600000).toISOString(), // 1 hour
-      };
-    } catch (error) {
-      this.logger.error(
-        `Failed to initiate KYC for user ${userId}: ${String(error)}`,
-      );
-      // Re-throw a BadRequest with safer message for API consumers
-      throw new BadRequestException('Failed to initiate KYC verification');
-    }
-  }
-
-  async getKycStatus(userId: string) {
-    const user = await this.prisma.user.findUnique({
+    // Update user with KYC submission
+    await this.prisma.user.update({
       where: { id: userId },
-      include: {
-        kycDocuments: {
-          orderBy: { submittedAt: 'desc' },
-          take: 1,
-        },
+      data: {
+        kycStatus: KYCStatus.PENDING,
+        kycSubmittedAt: new Date(),
       },
     });
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    // Create audit log
+    await this.prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'KYC_INITIATED',
+        entityType: 'user',
+        entityId: userId,
+        metadata: submitKycDto as unknown as Record<string, any>,
+      },
+    });
 
-    let providerStatus: Record<string, unknown> | null = null;
-
-    if (user.kycProviderId) {
-      try {
-        const kycService = this.getKycService();
-        providerStatus = await kycService.getApplicantStatus(
-          user.kycProviderId,
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to fetch KYC status from provider: ${String(error)}`,
-        );
-        providerStatus = null;
-      }
-    }
+    this.logger.log(`KYC initiated for user ${userId}`);
 
     return {
-      userId: user.id,
-      kycStatus: user.kycStatus,
-      applicantId: user.kycProviderId ?? null,
-      providerStatus,
-      documents: user.kycDocuments ?? [],
-      canRetry:
-        user.kycStatus === KYCStatus.REJECTED ||
-        user.kycStatus === KYCStatus.EXPIRED,
+      status: KYCStatus.PENDING,
+      message: 'KYC process initiated. Please upload required documents.',
+      requiredDocuments: [
+        DocumentType.ID_CARD,
+        DocumentType.SELFIE,
+        DocumentType.ADDRESS_PROOF,
+      ],
     };
   }
 
-  async handleWebhook(webhookData: KycWebhookPayload) {
-    const { applicantId, reviewStatus, reviewRejectType, clientComment } =
-      webhookData;
-
-    this.logger.log(
-      `KYC webhook received for applicant: ${applicantId}, status: ${reviewStatus}`,
-    );
-
-    const user = await this.prisma.user.findFirst({
-      where: { kycProviderId: applicantId },
-    });
-
-    if (!user) {
-      this.logger.warn(`User not found for applicant: ${applicantId}`);
-      return { success: false, message: 'User not found' };
-    }
-
-    let kycStatus: KYCStatus;
-    if (reviewStatus === 'completed' || reviewStatus === 'approved') {
-      kycStatus = KYCStatus.APPROVED;
-      const firstName = user.email!.split('@')[0];
-      await this.emailService.sendKycApprovedEmail(user.email!, firstName);
-    } else if (reviewStatus === 'rejected') {
-      kycStatus = KYCStatus.REJECTED;
-      const firstName = user.email!.split('@')[0];
-      await this.emailService.sendKycRejectedEmail(user.email!, firstName);
-    } else {
-      kycStatus = KYCStatus.PENDING;
-    }
-
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { kycStatus },
-    });
-
-    await this.prisma.kYCDocument.updateMany({
-      where: {
-        userId: user.id,
-        status: KYCStatus.PENDING,
-      },
-      data: {
-        status: kycStatus,
-        reviewedAt: new Date(),
-        rejectionReason: reviewRejectType ?? clientComment ?? null,
-      },
-    });
-
-    const action =
-      kycStatus === KYCStatus.APPROVED
-        ? 'KYC_APPROVED'
-        : kycStatus === KYCStatus.REJECTED
-          ? 'KYC_REJECTED'
-          : 'KYC_UPDATED';
-
-    await this.prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action,
-        entityType: 'user',
-        entityId: user.id,
-        metadata: {
-          applicantId,
-          reviewStatus,
-          reviewRejectType,
-        },
-      },
-    });
-
-    this.logger.log(`KYC status updated for user ${user.id}: ${kycStatus}`);
-
-    // TODO: Send notification to user (e.g., email)
-    return { success: true, userId: user.id, status: kycStatus };
-  }
-
-  async retryKyc(userId: string) {
+  /**
+   * Upload KYC document (ID, Passport, Selfie, etc.)
+   */
+  async uploadDocument(
+    userId: string,
+    documentType: DocumentType,
+    frontImage: Express.Multer.File,
+    backImage?: Express.Multer.File,
+    metadata?: Record<string, any>,
+  ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
     if (!user) {
@@ -276,58 +91,136 @@ export class KycService {
     }
 
     if (user.kycStatus === KYCStatus.APPROVED) {
-      throw new BadRequestException('KYC already approved. Cannot retry.');
+      throw new BadRequestException('KYC already approved');
     }
 
-    if (!user.kycProviderId) {
-      throw new BadRequestException('No previous KYC attempt found');
-    }
+    // Upload front image to S3
+    const frontImageUrl = await this.s3Service.uploadFile(
+      frontImage,
+      'kyc-documents',
+    );
 
-    const kycService = this.getKycService();
-
-    try {
-      await kycService.resetApplicant(user.kycProviderId);
-
-      const tokenResult = await kycService.generateAccessToken(
-        user.kycProviderId,
+    // Upload back image if provided (for two-sided documents)
+    let backImageUrl: string | null = null;
+    if (backImage) {
+      backImageUrl = await this.s3Service.uploadFile(
+        backImage,
+        'kyc-documents',
       );
-      const token = tokenResult.token;
+    }
 
+    // Create KYC document record
+    const kycDocument = await this.prisma.kYCDocument.create({
+      data: {
+        userId,
+        documentType,
+        documentUrl: frontImageUrl,
+        backImageUrl,
+        status: DocumentStatus.PENDING,
+        metadata: metadata || {},
+      },
+    });
+
+    // Update user KYC status if this is first document
+    if (user.kycStatus === KYCStatus.NOT_STARTED) {
       await this.prisma.user.update({
         where: { id: userId },
-        data: { kycStatus: KYCStatus.PENDING },
+        data: {
+          kycStatus: KYCStatus.PENDING,
+          kycSubmittedAt: new Date(),
+        },
       });
-
-      this.logger.log(`KYC retry initiated for user ${userId}`);
-
-      const sdkUrl = this.useMockKyc
-        ? `mock://kyc-verification/${user.kycProviderId}`
-        : `https://api.sumsub.com/idensic/websdk?token=${encodeURIComponent(token)}`;
-
-      return {
-        applicantId: user.kycProviderId,
-        accessToken: token,
-        sdkUrl,
-        status: KYCStatus.PENDING,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Failed to retry KYC for user ${userId}: ${String(error)}`,
-      );
-      throw new BadRequestException('Failed to retry KYC verification');
     }
+
+    // Create audit log
+    await this.prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'KYC_DOCUMENT_UPLOADED',
+        entityType: 'kyc_document',
+        entityId: kycDocument.id,
+        metadata: { documentType },
+      },
+    });
+
+    this.logger.log(
+      `KYC document uploaded for user ${userId}: ${documentType}`,
+    );
+
+    return {
+      documentId: kycDocument.id,
+      documentType: kycDocument.documentType,
+      status: kycDocument.status,
+      submittedAt: kycDocument.submittedAt,
+      message: 'Document uploaded successfully and pending review',
+    };
   }
 
-  // Admin functions
+  /**
+   * Get KYC status and all uploaded documents for a user
+   */
+  async getKycStatus(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        kycDocuments: {
+          orderBy: { submittedAt: 'desc' },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Group documents by status
+    const documentsByStatus = {
+      pending: user.kycDocuments.filter(
+        (doc) => doc.status === DocumentStatus.PENDING,
+      ).length,
+      approved: user.kycDocuments.filter(
+        (doc) => doc.status === DocumentStatus.APPROVED,
+      ).length,
+      rejected: user.kycDocuments.filter(
+        (doc) => doc.status === DocumentStatus.REJECTED,
+      ).length,
+    };
+
+    return {
+      userId: user.id,
+      kycStatus: user.kycStatus,
+      kycSubmittedAt: user.kycSubmittedAt,
+      kycApprovedAt: user.kycApprovedAt,
+      kycRejectedAt: user.kycRejectedAt,
+      kycRejectionReason: user.kycRejectionReason,
+      documents: user.kycDocuments.map((doc) => ({
+        id: doc.id,
+        documentType: doc.documentType,
+        status: doc.status,
+        submittedAt: doc.submittedAt,
+        reviewedAt: doc.reviewedAt,
+        rejectionReason: doc.rejectionReason,
+      })),
+      documentsByStatus,
+      canRetry:
+        user.kycStatus === KYCStatus.REJECTED ||
+        user.kycStatus === KYCStatus.EXPIRED,
+    };
+  }
+
+  /**
+   * Admin: Get all KYC applications with filters
+   */
   async getAllKycApplications(filters?: {
     status?: KYCStatus;
+    documentStatus?: DocumentStatus;
     page?: number;
     limit?: number;
   }) {
-    const { status, page = 1, limit = 20 } = filters ?? {};
+    const { status, documentStatus, page = 1, limit = 20 } = filters ?? {};
     const skip = (page - 1) * limit;
 
-    const whereClause: { kycStatus?: KYCStatus } = {};
+    const whereClause: any = {};
     if (status) whereClause.kycStatus = status;
 
     const [users, total] = await Promise.all([
@@ -338,16 +231,19 @@ export class KycService {
         select: {
           id: true,
           email: true,
+          phoneNumber: true,
           kycStatus: true,
-          kycProviderId: true,
-          kycData: true,
+          kycSubmittedAt: true,
+          kycApprovedAt: true,
+          kycRejectedAt: true,
+          kycRejectionReason: true,
           createdAt: true,
           kycDocuments: {
+            where: documentStatus ? { status: documentStatus } : undefined,
             orderBy: { submittedAt: 'desc' },
-            take: 1,
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { kycSubmittedAt: 'desc' },
       }),
       this.prisma.user.count({ where: whereClause }),
     ]);
@@ -363,8 +259,165 @@ export class KycService {
     };
   }
 
+  /**
+   * Admin: Get detailed KYC application for a specific user
+   */
+  async getKycApplication(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        kycDocuments: {
+          include: {
+            reviewer: {
+              select: {
+                id: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: { submittedAt: 'desc' },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return {
+      userId: user.id,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      kycStatus: user.kycStatus,
+      kycSubmittedAt: user.kycSubmittedAt,
+      kycApprovedAt: user.kycApprovedAt,
+      kycRejectedAt: user.kycRejectedAt,
+      kycRejectionReason: user.kycRejectionReason,
+      documents: user.kycDocuments,
+    };
+  }
+
+  /**
+   * Admin: Review a single KYC document
+   */
+  async reviewDocument(
+    documentId: string,
+    reviewDto: ReviewDocumentDto,
+    reviewerId: string,
+  ) {
+    const document = await this.prisma.kYCDocument.findUnique({
+      where: { id: documentId },
+      include: { user: true },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    if (document.status !== DocumentStatus.PENDING) {
+      throw new BadRequestException('Document already reviewed');
+    }
+
+    const newStatus = reviewDto.approve
+      ? DocumentStatus.APPROVED
+      : DocumentStatus.REJECTED;
+
+    // Update document status
+    await this.prisma.kYCDocument.update({
+      where: { id: documentId },
+      data: {
+        status: newStatus,
+        reviewedAt: new Date(),
+        reviewedBy: reviewerId,
+        rejectionReason: reviewDto.approve ? null : reviewDto.rejectionReason,
+      },
+    });
+
+    // Check if all documents are now approved
+    const allDocuments = await this.prisma.kYCDocument.findMany({
+      where: { userId: document.userId },
+    });
+
+    const allApproved = allDocuments.every(
+      (doc) => doc.status === DocumentStatus.APPROVED,
+    );
+    const anyRejected = allDocuments.some(
+      (doc) => doc.status === DocumentStatus.REJECTED,
+    );
+
+    // Update user KYC status
+    let userKycStatus = KYCStatus.PENDING;
+    if (allApproved && allDocuments.length >= 3) {
+      // Require at least 3 documents
+      userKycStatus = KYCStatus.APPROVED;
+      await this.prisma.user.update({
+        where: { id: document.userId },
+        data: {
+          kycStatus: KYCStatus.APPROVED,
+          kycApprovedAt: new Date(),
+        },
+      });
+
+      // Send approval email
+      const firstName = document.user.email!.split('@')[0];
+      await this.emailService.sendKycApprovedEmail(
+        document.user.email!,
+        firstName,
+      );
+    } else if (anyRejected) {
+      userKycStatus = KYCStatus.REJECTED;
+      await this.prisma.user.update({
+        where: { id: document.userId },
+        data: {
+          kycStatus: KYCStatus.REJECTED,
+          kycRejectedAt: new Date(),
+          kycRejectionReason: reviewDto.rejectionReason || 'Document rejected',
+        },
+      });
+
+      // Send rejection email
+      const firstName = document.user.email!.split('@')[0];
+      await this.emailService.sendKycRejectedEmail(
+        document.user.email!,
+        firstName,
+      );
+    }
+
+    // Create audit log
+    await this.prisma.auditLog.create({
+      data: {
+        userId: document.userId,
+        action: reviewDto.approve ? 'KYC_DOCUMENT_APPROVED' : 'KYC_DOCUMENT_REJECTED',
+        entityType: 'kyc_document',
+        entityId: documentId,
+        metadata: {
+          reviewerId,
+          documentType: document.documentType,
+          rejectionReason: reviewDto.rejectionReason,
+        },
+      },
+    });
+
+    this.logger.log(
+      `Document ${documentId} ${reviewDto.approve ? 'approved' : 'rejected'} by ${reviewerId}`,
+    );
+
+    return {
+      documentId,
+      status: newStatus,
+      userKycStatus,
+      message: `Document ${reviewDto.approve ? 'approved' : 'rejected'} successfully`,
+    };
+  }
+
+  /**
+   * Admin: Manually approve entire KYC application
+   */
   async manualApprove(userId: string, reviewedBy: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { kycDocuments: true },
+    });
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -374,20 +427,30 @@ export class KycService {
       throw new BadRequestException('KYC already approved');
     }
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { kycStatus: KYCStatus.APPROVED },
-    });
-
+    // Update all pending documents to approved
     await this.prisma.kYCDocument.updateMany({
-      where: { userId, status: KYCStatus.PENDING },
+      where: { userId, status: DocumentStatus.PENDING },
       data: {
-        status: KYCStatus.APPROVED,
+        status: DocumentStatus.APPROVED,
         reviewedAt: new Date(),
         reviewedBy,
       },
     });
 
+    // Update user status
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        kycStatus: KYCStatus.APPROVED,
+        kycApprovedAt: new Date(),
+      },
+    });
+
+    // Send email
+    const firstName = user.email!.split('@')[0];
+    await this.emailService.sendKycApprovedEmail(user.email!, firstName);
+
+    // Create audit log
     await this.prisma.auditLog.create({
       data: {
         userId,
@@ -398,35 +461,50 @@ export class KycService {
       },
     });
 
-    this.logger.log(
-      `KYC manually approved for user ${userId} by ${reviewedBy}`,
-    );
+    this.logger.log(`KYC manually approved for user ${userId} by ${reviewedBy}`);
 
     return { success: true, message: 'KYC approved successfully' };
   }
 
+  /**
+   * Admin: Manually reject entire KYC application
+   */
   async manualReject(userId: string, reason: string, reviewedBy: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { kycDocuments: true },
+    });
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { kycStatus: KYCStatus.REJECTED },
-    });
-
+    // Update all pending documents to rejected
     await this.prisma.kYCDocument.updateMany({
-      where: { userId, status: KYCStatus.PENDING },
+      where: { userId, status: DocumentStatus.PENDING },
       data: {
-        status: KYCStatus.REJECTED,
+        status: DocumentStatus.REJECTED,
         reviewedAt: new Date(),
         reviewedBy,
         rejectionReason: reason,
       },
     });
 
+    // Update user status
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        kycStatus: KYCStatus.REJECTED,
+        kycRejectedAt: new Date(),
+        kycRejectionReason: reason,
+      },
+    });
+
+    // Send email
+    const firstName = user.email!.split('@')[0];
+    await this.emailService.sendKycRejectedEmail(user.email!, firstName);
+
+    // Create audit log
     await this.prisma.auditLog.create({
       data: {
         userId,
@@ -437,57 +515,66 @@ export class KycService {
       },
     });
 
-    this.logger.log(
-      `KYC manually rejected for user ${userId} by ${reviewedBy}`,
-    );
+    this.logger.log(`KYC manually rejected for user ${userId} by ${reviewedBy}`);
 
     return { success: true, message: 'KYC rejected' };
   }
 
-  // For testing with mock service
-  async mockApprove(userId: string) {
-    if (!this.useMockKyc) {
-      throw new BadRequestException('Not using mock KYC service');
-    }
-
+  /**
+   * User: Retry KYC after rejection
+   */
+  async retryKyc(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
-    if (!user || !user.kycProviderId) {
-      throw new NotFoundException('User or KYC application not found');
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
 
-    this.mockKycService.approveApplicant(user.kycProviderId);
+    if (user.kycStatus === KYCStatus.APPROVED) {
+      throw new BadRequestException('KYC already approved. Cannot retry.');
+    }
 
-    await this.handleWebhook({
-      applicantId: user.kycProviderId,
-      reviewStatus: 'approved',
-      reviewRejectType: null,
-      clientComment: 'Mock approval',
+    if (
+      user.kycStatus !== KYCStatus.REJECTED &&
+      user.kycStatus !== KYCStatus.EXPIRED
+    ) {
+      throw new BadRequestException('KYC can only be retried after rejection or expiry');
+    }
+
+    // Reset user KYC status
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        kycStatus: KYCStatus.NOT_STARTED,
+        kycSubmittedAt: null,
+        kycRejectedAt: null,
+        kycRejectionReason: null,
+      },
     });
 
-    return { success: true, message: 'Mock KYC approved' };
-  }
-
-  async mockReject(userId: string, reason: string) {
-    if (!this.useMockKyc) {
-      throw new BadRequestException('Not using mock KYC service');
-    }
-
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-
-    if (!user || !user.kycProviderId) {
-      throw new NotFoundException('User or KYC application not found');
-    }
-
-    this.mockKycService.rejectApplicant(user.kycProviderId, reason);
-
-    await this.handleWebhook({
-      applicantId: user.kycProviderId,
-      reviewStatus: 'rejected',
-      reviewRejectType: 'FINAL',
-      clientComment: reason,
+    // Delete old rejected documents from database and S3
+    const oldDocuments = await this.prisma.kYCDocument.findMany({
+      where: { userId },
     });
 
-    return { success: true, message: 'Mock KYC rejected' };
+    for (const doc of oldDocuments) {
+      try {
+        await this.s3Service.deleteFile(doc.documentUrl);
+        if (doc.backImageUrl) {
+          await this.s3Service.deleteFile(doc.backImageUrl);
+        }
+      } catch (error) {
+        this.logger.warn(`Failed to delete document from S3: ${doc.id}`);
+      }
+    }
+
+    await this.prisma.kYCDocument.deleteMany({ where: { userId } });
+
+    this.logger.log(`KYC retry initiated for user ${userId}`);
+
+    return {
+      status: KYCStatus.NOT_STARTED,
+      message: 'KYC reset successfully. You can now submit new documents.',
+    };
   }
 }
