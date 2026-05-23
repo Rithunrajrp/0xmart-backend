@@ -31,6 +31,7 @@ import { ReviewDocumentDto } from './dto/review-document.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole, KYCStatus, DocumentType, DocumentStatus } from '@prisma/client';
 import { KycSessionEntity } from './entities/kyc.entity';
@@ -46,7 +47,7 @@ export class KycController {
   @ApiOperation({ summary: 'Initiate KYC verification' })
   @ApiResponse({ status: 201, type: KycSessionEntity })
   async initiateKyc(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() submitKycDto: SubmitKycDto,
   ) {
     return this.kycService.initiateKyc(user.id as string, submitKycDto);
@@ -80,7 +81,7 @@ export class KycController {
   })
   @ApiResponse({ status: 201, description: 'Document uploaded successfully' })
   async uploadDocument(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body('documentType') documentType: DocumentType,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
@@ -108,7 +109,7 @@ export class KycController {
   @Get('status')
   @ApiOperation({ summary: 'Get KYC verification status and uploaded documents' })
   @ApiResponse({ status: 200 })
-  async getStatus(@CurrentUser() user: any) {
+  async getStatus(@CurrentUser() user: AuthenticatedUser) {
     return this.kycService.getKycStatus(user.id as string);
   }
 
@@ -117,7 +118,7 @@ export class KycController {
   @Post('retry')
   @ApiOperation({ summary: 'Retry KYC verification after rejection' })
   @ApiResponse({ status: 201 })
-  async retryKyc(@CurrentUser() user: any) {
+  async retryKyc(@CurrentUser() user: AuthenticatedUser) {
     return this.kycService.retryKyc(user.id as string);
   }
 

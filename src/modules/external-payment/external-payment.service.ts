@@ -646,8 +646,8 @@ export class ExternalPaymentService {
     }
 
     // Convert amount to wei (smallest unit)
-    // Stablecoins typically use 6 decimals (USDT, USDC) or 18 decimals (DAI)
-    const decimals = order.stablecoinType === 'DAI' ? 18 : 6;
+    // USDT and USDC use 6 decimals
+    const decimals = 6;
     const amountWei = ethers.utils.parseUnits(order.total.toString(), decimals);
 
     // Update order with network and contract details

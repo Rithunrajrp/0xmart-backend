@@ -25,6 +25,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 
 @ApiTags('Merchant Management')
 @ApiBearerAuth()
@@ -55,7 +56,7 @@ export class MerchantManagementController {
   })
   async createMerchant(
     @Body() createMerchantDto: CreateMerchantDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.merchantManagementService.createMerchant(
       createMerchantDto,
@@ -143,7 +144,7 @@ export class MerchantManagementController {
   async approveDocument(
     @Param('docId') docId: string,
     @Body() approveDto: ApproveDocumentDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.merchantManagementService.approveDocument(
       docId,
@@ -160,7 +161,7 @@ export class MerchantManagementController {
   async rejectDocument(
     @Param('docId') docId: string,
     @Body() rejectDto: RejectDocumentDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.merchantManagementService.rejectDocument(
       docId,
@@ -175,7 +176,7 @@ export class MerchantManagementController {
   @ApiResponse({ status: 200, description: 'Merchant activated successfully' })
   @ApiResponse({ status: 404, description: 'Merchant not found' })
   @ApiResponse({ status: 400, description: 'Merchant not in APPROVED status' })
-  async activateMerchant(@Param('id') id: string, @CurrentUser() user: any) {
+  async activateMerchant(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.merchantManagementService.activateMerchant(id, user.id);
   }
 

@@ -18,6 +18,8 @@ interface TokenConfig {
 export class WithdrawalProcessorService {
   private readonly logger = new Logger(WithdrawalProcessorService.name);
   private isProcessing = false;
+  private readonly MAX_RETRY_ATTEMPTS = 3;
+  private readonly RETRY_DELAYS = [5 * 60 * 1000, 15 * 60 * 1000, 60 * 60 * 1000]; // 5min, 15min, 1hour
 
   // ERC20 token addresses per network
   private readonly tokenAddresses: Record<
@@ -33,14 +35,6 @@ export class WithdrawalProcessorService {
         address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
         decimals: 6,
       },
-      DAI: {
-        address: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
-        decimals: 18,
-      },
-      BUSD: {
-        address: '0x4Fabb145d64652a948d72533023f6E7A623C7C53',
-        decimals: 18,
-      },
     },
     POLYGON: {
       USDT: {
@@ -51,14 +45,6 @@ export class WithdrawalProcessorService {
         address: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
         decimals: 6,
       },
-      DAI: {
-        address: '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063',
-        decimals: 18,
-      },
-      BUSD: {
-        address: '0xdAb529f40E671A1D4bF91361c21bf9f0C9712ab7',
-        decimals: 18,
-      },
     },
     BSC: {
       USDT: {
@@ -67,14 +53,6 @@ export class WithdrawalProcessorService {
       },
       USDC: {
         address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
-        decimals: 18,
-      },
-      DAI: {
-        address: '0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3',
-        decimals: 18,
-      },
-      BUSD: {
-        address: '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56',
         decimals: 18,
       },
     },
@@ -87,14 +65,6 @@ export class WithdrawalProcessorService {
         address: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
         decimals: 6,
       },
-      DAI: {
-        address: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
-        decimals: 18,
-      },
-      BUSD: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      },
     },
     OPTIMISM: {
       USDT: {
@@ -104,14 +74,6 @@ export class WithdrawalProcessorService {
       USDC: {
         address: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607',
         decimals: 6,
-      },
-      DAI: {
-        address: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
-        decimals: 18,
-      },
-      BUSD: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
       },
     },
     AVALANCHE: {
@@ -123,14 +85,6 @@ export class WithdrawalProcessorService {
         address: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',
         decimals: 6,
       },
-      DAI: {
-        address: '0xd586E7F844cEa2F87f50152665BCbc2C279D8d70',
-        decimals: 18,
-      },
-      BUSD: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      },
     },
     BASE: {
       USDT: {
@@ -141,14 +95,6 @@ export class WithdrawalProcessorService {
         address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
         decimals: 6,
       },
-      DAI: {
-        address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb',
-        decimals: 18,
-      },
-      BUSD: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      },
     },
     SUI: {
       USDT: {
@@ -156,14 +102,6 @@ export class WithdrawalProcessorService {
         decimals: 9,
       },
       USDC: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 9,
-      },
-      DAI: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 9,
-      },
-      BUSD: {
         address: '0x0000000000000000000000000000000000000000',
         decimals: 9,
       },
@@ -177,14 +115,6 @@ export class WithdrawalProcessorService {
         address: '0x0000000000000000000000000000000000000000',
         decimals: 6,
       },
-      DAI: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      },
-      BUSD: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      },
     },
     SOLANA: {
       USDT: {
@@ -195,14 +125,6 @@ export class WithdrawalProcessorService {
         address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         decimals: 6,
       }, // USDC SPL Token
-      DAI: {
-        address: 'EjmyN6qEC1Tf1JxiG1ae7UTJhUxSwk1TCWNWqxWV4J6o',
-        decimals: 8,
-      }, // DAI SPL Token
-      BUSD: {
-        address: 'AJ1W9A9N9dEMdVyoDiam2rV44gnBm2csrPDP7xqcapgX',
-        decimals: 8,
-      }, // BUSD SPL Token
     },
   };
 
@@ -261,6 +183,7 @@ export class WithdrawalProcessorService {
 
     try {
       await this.processPendingWithdrawals();
+      await this.processRetryableWithdrawals();
       await this.checkWithdrawalConfirmations();
     } catch (error) {
       this.logger.error(`Processor error: ${error.message}`);
@@ -302,6 +225,70 @@ export class WithdrawalProcessorService {
       } catch (error) {
         this.logger.error(
           `Failed to process withdrawal ${withdrawal.id}: ${error.message}`,
+        );
+        await this.handleWithdrawalFailure(
+          withdrawal.id,
+          error.message as string,
+        );
+      }
+    }
+  }
+
+  /**
+   * Process failed withdrawals that are ready for retry
+   */
+  private async processRetryableWithdrawals() {
+    const now = new Date();
+
+    // Get failed withdrawals that are ready for retry
+    const retryableWithdrawals = await this.prisma.withdrawal.findMany({
+      where: {
+        status: TransactionStatus.FAILED,
+        retryCount: { lt: this.MAX_RETRY_ATTEMPTS },
+        OR: [
+          { nextRetryAt: null }, // Never retried before
+          { nextRetryAt: { lte: now } }, // Retry time has passed
+        ],
+      },
+      include: {
+        wallet: {
+          include: {
+            user: true,
+          },
+        },
+      },
+      take: 5, // Process 5 retries at a time (less than new withdrawals)
+      orderBy: { nextRetryAt: 'asc' },
+    });
+
+    if (retryableWithdrawals.length === 0) {
+      return;
+    }
+
+    this.logger.log(
+      `Retrying ${retryableWithdrawals.length} failed withdrawals`,
+    );
+
+    for (const withdrawal of retryableWithdrawals) {
+      try {
+        // Reset status to PENDING for retry
+        await this.prisma.withdrawal.update({
+          where: { id: withdrawal.id },
+          data: {
+            status: TransactionStatus.PENDING,
+            retryCount: withdrawal.retryCount + 1,
+            lastRetryAt: new Date(),
+          },
+        });
+
+        this.logger.log(
+          `Retry attempt ${withdrawal.retryCount + 1}/${this.MAX_RETRY_ATTEMPTS} for withdrawal ${withdrawal.id}`,
+        );
+
+        await this.processWithdrawal(withdrawal);
+      } catch (error) {
+        this.logger.error(
+          `Retry failed for withdrawal ${withdrawal.id}: ${error.message}`,
         );
         await this.handleWithdrawalFailure(
           withdrawal.id,
@@ -538,12 +525,27 @@ export class WithdrawalProcessorService {
 
     if (!withdrawal) return;
 
-    // Update status to FAILED
+    // Calculate next retry time with exponential backoff
+    let nextRetryAt: Date | null = null;
+    if (withdrawal.retryCount < this.MAX_RETRY_ATTEMPTS) {
+      const delay = this.RETRY_DELAYS[withdrawal.retryCount] || this.RETRY_DELAYS[this.RETRY_DELAYS.length - 1];
+      nextRetryAt = new Date(Date.now() + delay);
+      this.logger.log(
+        `Withdrawal ${withdrawalId} will be retried at ${nextRetryAt.toISOString()} (attempt ${withdrawal.retryCount + 1}/${this.MAX_RETRY_ATTEMPTS})`,
+      );
+    } else {
+      this.logger.warn(
+        `Withdrawal ${withdrawalId} exceeded max retry attempts (${this.MAX_RETRY_ATTEMPTS}). Marking as permanently failed.`,
+      );
+    }
+
+    // Update status to FAILED with retry info
     await this.prisma.withdrawal.update({
       where: { id: withdrawalId },
       data: {
         status: TransactionStatus.FAILED,
         failureReason: reason,
+        nextRetryAt,
       },
     });
 
@@ -675,11 +677,18 @@ export class WithdrawalProcessorService {
       throw new BadRequestException('Invalid KYC status');
     }
 
-    // Calculate total withdrawals for this user in the past 24h or lifetime (you can decide)
+    // Calculate total withdrawals for this user in the past 24 hours (rolling window)
+    const twentyFourHoursAgo = new Date();
+    twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+
     const totalWithdrawn = await this.prisma.withdrawal.aggregate({
       where: {
         wallet: { userId: user.id },
         status: TransactionStatus.COMPLETED,
+        // Only count withdrawals completed in the last 24 hours
+        completedAt: {
+          gte: twentyFourHoursAgo,
+        },
       },
       _sum: { amount: true },
     });
@@ -692,7 +701,7 @@ export class WithdrawalProcessorService {
     if (newTotal.gt(limit)) {
       throw new BadRequestException(
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        `Withdrawal exceeds your KYC limit. Max allowed: ${limit}, Current total: ${totalAmount}`,
+        `Withdrawal exceeds your 24-hour limit. Max allowed: $${limit}, Already withdrawn in last 24h: $${totalAmount}, Requested: $${withdrawal.amount}`,
       );
     }
 

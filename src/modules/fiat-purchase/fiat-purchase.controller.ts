@@ -11,6 +11,7 @@ import { CreatePurchaseDto } from './dto/create-purchase.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { UserRole, FiatPaymentStatus } from '@prisma/client';
@@ -37,7 +38,7 @@ export class FiatPurchaseController {
   @ApiOperation({ summary: 'Initiate fiat to stablecoin purchase' })
   @ApiResponse({ status: 201, type: CreatePurchaseResponseEntity })
   async createPurchase(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @common.Body() createPurchaseDto: CreatePurchaseDto,
   ) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
@@ -52,7 +53,7 @@ export class FiatPurchaseController {
   @ApiQuery({ name: 'limit', required: false })
   @ApiResponse({ status: 200 })
   async getPurchaseHistory(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @common.Query('page') page?: number,
     @common.Query('limit') limit?: number,
   ) {
@@ -65,7 +66,7 @@ export class FiatPurchaseController {
   @common.Get(':id')
   @ApiOperation({ summary: 'Get purchase by ID' })
   @ApiResponse({ status: 200, type: FiatPurchaseEntity })
-  async getPurchase(@common.Param('id') id: string, @CurrentUser() user: any) {
+  async getPurchase(@common.Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return this.fiatPurchaseService.getPurchaseById(id, user.id);
   }

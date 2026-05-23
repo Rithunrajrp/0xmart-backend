@@ -12,6 +12,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { TransactionStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('deposit-monitor')
@@ -82,7 +83,7 @@ export class DepositMonitorController {
   @Get('user/deposits')
   @ApiOperation({ summary: 'Get user deposit history' })
   @ApiResponse({ status: 200 })
-  async getUserDeposits(@CurrentUser() user: any) {
+  async getUserDeposits(@CurrentUser() user: AuthenticatedUser) {
     const deposits = await this.prisma.deposit.findMany({
       where: {
         wallet: {

@@ -25,6 +25,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 
 @ApiTags('Admin Management')
 @ApiBearerAuth()
@@ -49,7 +50,7 @@ export class AdminManagementController {
   })
   async createAdmin(
     @Body() createAdminDto: CreateAdminDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.adminManagementService.createAdmin(createAdminDto, user.id);
   }

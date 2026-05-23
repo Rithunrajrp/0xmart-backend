@@ -33,14 +33,6 @@ export class DepositMonitorService {
         address: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', // Sepolia USDC
         decimals: 6,
       },
-      DAI: {
-        address: '0x68194a729C2450ad26072b3D33ADaCbcef39D574', // Sepolia DAI
-        decimals: 18,
-      },
-      BUSD: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      }, // Not available on testnet
     },
     POLYGON: {
       USDT: {
@@ -51,14 +43,6 @@ export class DepositMonitorService {
         address: '0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582', // Amoy USDC (Circle official)
         decimals: 6,
       },
-      DAI: {
-        address: '0x001B3B4d0F3714Ca98ba10F6042DaEbF0B1B7b6F', // Amoy DAI
-        decimals: 18,
-      },
-      BUSD: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      }, // Not available on testnet
     },
     BSC: {
       USDT: {
@@ -69,14 +53,6 @@ export class DepositMonitorService {
         address: '0x64544969ed7EBf5f083679233325356EbE738930', // BSC Testnet USDC
         decimals: 18,
       },
-      DAI: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      }, // Not available on testnet
-      BUSD: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      }, // Not available on testnet
     },
     ARBITRUM: {
       USDT: {
@@ -87,14 +63,6 @@ export class DepositMonitorService {
         address: '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d', // Arbitrum Sepolia USDC
         decimals: 6,
       },
-      DAI: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      }, // Not available on testnet
-      BUSD: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      }, // Not available on testnet
     },
     OPTIMISM: {
       USDT: {
@@ -105,14 +73,6 @@ export class DepositMonitorService {
         address: '0x5fd84259d66Cd46123540766Be93DFE6D43130D7', // Optimism Sepolia USDC
         decimals: 6,
       },
-      DAI: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      }, // Not available on testnet
-      BUSD: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      }, // Not available on testnet
     },
     AVALANCHE: {
       USDT: {
@@ -123,14 +83,6 @@ export class DepositMonitorService {
         address: '0x5425890298aed601595a70AB815c96711a31Bc65', // Fuji testnet USDC
         decimals: 6,
       },
-      DAI: {
-        address: '0x51BC2DfB9D12d9dB50C855A5330fBA0faF761D15', // Fuji testnet DAI
-        decimals: 18,
-      },
-      BUSD: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      }, // Not available on testnet
     },
     BASE: {
       USDT: {
@@ -141,14 +93,6 @@ export class DepositMonitorService {
         address: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // Base Sepolia USDC
         decimals: 6,
       },
-      DAI: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      }, // Not available on testnet
-      BUSD: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      }, // Not available on testnet
     },
     SUI: {
       USDT: {
@@ -159,14 +103,6 @@ export class DepositMonitorService {
         address: '0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC',
         decimals: 6,
       }, // Sui Testnet USDC (Circle official)
-      DAI: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      }, // DAI not available on Sui testnet
-      BUSD: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      }, // BUSD not available on Sui testnet
     },
     TON: {
       USDT: {
@@ -176,14 +112,6 @@ export class DepositMonitorService {
       USDC: {
         address: '0x0000000000000000000000000000000000000000',
         decimals: 6,
-      },
-      DAI: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
-      },
-      BUSD: {
-        address: '0x0000000000000000000000000000000000000000',
-        decimals: 18,
       },
     },
     SOLANA: {
@@ -195,14 +123,6 @@ export class DepositMonitorService {
         address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         decimals: 6,
       }, // USDC SPL Token
-      DAI: {
-        address: 'EjmyN6qEC1Tf1JxiG1ae7UTJhUxSwk1TCWNWqxWV4J6o',
-        decimals: 8,
-      }, // DAI SPL Token
-      BUSD: {
-        address: 'AJ1W9A9N9dEMdVyoDiam2rV44gnBm2csrPDP7xqcapgX',
-        decimals: 8,
-      }, // BUSD SPL Token
     },
   };
 
@@ -244,63 +164,180 @@ export class DepositMonitorService {
     }
 
     this.isMonitoring = true;
+    const startTime = Date.now();
 
     try {
-      await this.scanForNewDeposits();
-      await this.updatePendingDeposits();
+      this.logger.log('Starting deposit monitor scan...');
+
+      const scanResult = await this.scanForNewDeposits();
+      const updateResult = await this.updatePendingDeposits();
+
+      const duration = Date.now() - startTime;
+      this.logger.log(
+        `Deposit monitor cycle complete - ` +
+        `Scanned: ${scanResult.scanned}, ` +
+        `New Deposits: ${scanResult.newDeposits}, ` +
+        `Updated: ${updateResult.updated}, ` +
+        `Duration: ${duration}ms`,
+      );
     } catch (error) {
-      this.logger.error(`Monitor error: ${error.message}`);
+      const duration = Date.now() - startTime;
+      this.logger.error(
+        `Deposit monitor error after ${duration}ms: ${error.message}`,
+        error.stack,
+      );
+
+      // Attempt to notify admin/monitoring service about critical failure
+      try {
+        await this.notifyMonitoringFailure(error);
+      } catch (notifyError) {
+        this.logger.error(
+          `Failed to notify monitoring failure: ${notifyError.message}`,
+        );
+      }
     } finally {
       this.isMonitoring = false;
     }
   }
 
-  private async scanForNewDeposits() {
-    // Get all wallets with deposit addresses
-    const wallets = await this.prisma.wallet.findMany({
-      select: {
-        id: true,
-        userId: true,
-        depositAddress: true,
-        stablecoinType: true,
-        network: true,
+  /**
+   * Notify about monitoring failures (could send email, Slack, etc.)
+   */
+  private async notifyMonitoringFailure(error: Error) {
+    // TODO: Implement notification logic (email, Slack webhook, etc.)
+    // For now, just log as a critical error
+    this.logger.error(
+      '🚨 CRITICAL: Deposit Monitor Failure - Admin notification required',
+      {
+        error: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString(),
       },
-    });
+    );
+  }
 
-    this.logger.debug(`Scanning ${wallets.length} wallets for deposits`);
+  private async scanForNewDeposits(): Promise<{ scanned: number; newDeposits: number }> {
+    const BATCH_SIZE = 100; // Process 100 wallets at a time
+    let offset = 0;
+    let totalScanned = 0;
+    let totalNewDeposits = 0;
+    const errors: Array<{ walletId: string; error: string }> = [];
 
-    for (const wallet of wallets) {
-      try {
-        await this.checkWalletForDeposits(wallet);
-      } catch (error) {
-        this.logger.error(
-          `Error checking wallet ${wallet.id}: ${error.message}`,
+    try {
+      while (true) {
+        // Get wallets in batches, prioritizing recently active wallets
+        const wallets = await this.prisma.wallet.findMany({
+          select: {
+            id: true,
+            userId: true,
+            depositAddress: true,
+            stablecoinType: true,
+            network: true,
+            // lastDepositAt: true, // TODO: Uncomment after migration
+            createdAt: true,
+          },
+          where: {
+            // Only scan recently created wallets to reduce load
+            // TODO: After migration, add lastDepositAt filter:
+            // OR: [
+            //   { lastDepositAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+            //   { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+            // ]
+            createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+          },
+          take: BATCH_SIZE,
+          skip: offset,
+          orderBy: [
+            // Prioritize recently created wallets
+            // TODO: After migration, add: { lastDepositAt: 'desc' },
+            { createdAt: 'desc' },
+          ],
+        });
+
+        if (wallets.length === 0) {
+          break; // No more wallets to process
+        }
+
+        this.logger.debug(
+          `Scanning batch of ${wallets.length} wallets (offset: ${offset})`,
+        );
+
+        // Process batch in parallel for better performance
+        const results = await Promise.allSettled(
+          wallets.map((wallet) => this.checkWalletForDeposits(wallet)),
+        );
+
+        // Analyze results
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            totalNewDeposits += result.value || 0;
+          } else {
+            const wallet = wallets[index];
+            errors.push({
+              walletId: wallet.id,
+              error: result.reason?.message || 'Unknown error',
+            });
+            this.logger.error(
+              `Error checking wallet ${wallet.id}: ${result.reason?.message}`,
+              result.reason?.stack,
+            );
+          }
+        });
+
+        totalScanned += wallets.length;
+        offset += BATCH_SIZE;
+
+        // If we got fewer wallets than the batch size, we've reached the end
+        if (wallets.length < BATCH_SIZE) {
+          break;
+        }
+      }
+
+      if (errors.length > 0) {
+        this.logger.warn(
+          `Scan completed with ${errors.length} errors out of ${totalScanned} wallets`,
         );
       }
+
+      return { scanned: totalScanned, newDeposits: totalNewDeposits };
+    } catch (error) {
+      this.logger.error(
+        `Critical error in scanForNewDeposits: ${error.message}`,
+        error.stack,
+      );
+      throw error; // Re-throw to be caught by monitorDeposits
     }
   }
 
-  private async checkWalletForDeposits(wallet: any) {
+  private async checkWalletForDeposits(wallet: any): Promise<number> {
     const { network } = wallet;
 
-    // Route to appropriate monitoring method based on network
-    if (network === 'SOLANA') {
-      return this.checkSolanaWalletForDeposits(wallet);
-    }
+    try {
+      // Route to appropriate monitoring method based on network
+      if (network === 'SOLANA') {
+        return await this.checkSolanaWalletForDeposits(wallet);
+      }
 
-    if (network === 'TON') {
-      return this.checkTonWalletForDeposits(wallet);
-    }
+      if (network === 'TON') {
+        return await this.checkTonWalletForDeposits(wallet);
+      }
 
-    if (network === 'SUI') {
-      return this.checkSuiWalletForDeposits(wallet);
-    }
+      if (network === 'SUI') {
+        return await this.checkSuiWalletForDeposits(wallet);
+      }
 
-    // EVM chains (Ethereum, Polygon, BSC, etc.)
-    return this.checkEvmWalletForDeposits(wallet);
+      // EVM chains (Ethereum, Polygon, BSC, etc.)
+      return await this.checkEvmWalletForDeposits(wallet);
+    } catch (error) {
+      this.logger.error(
+        `Error checking ${network} wallet ${wallet.id}: ${error.message}`,
+        error.stack,
+      );
+      throw error; // Re-throw to be handled by caller
+    }
   }
 
-  private async checkEvmWalletForDeposits(wallet: any) {
+  private async checkEvmWalletForDeposits(wallet: any): Promise<number> {
     const {
       network,
       stablecoinType,
@@ -315,7 +352,7 @@ export class DepositMonitorService {
       !tokenConfig ||
       tokenConfig.address === '0x0000000000000000000000000000000000000000'
     ) {
-      return; // Token not available on this network
+      return 0; // Token not available on this network
     }
 
     // Get provider
@@ -375,6 +412,8 @@ export class DepositMonitorService {
       `Found ${logs.length} transfer events for wallet ${depositAddress} on ${network}`,
     );
 
+    let newDepositsCount = 0;
+
     for (const log of logs) {
       const parsedLog = iface.parseLog(log);
       const fromAddress = parsedLog.args.from;
@@ -409,10 +448,14 @@ export class DepositMonitorService {
         blockNumber: BigInt(log.blockNumber),
       });
 
+      newDepositsCount++;
+
       this.logger.log(
         `New deposit detected: ${amountDecimal.toString()} ${stablecoinType} to wallet ${depositAddress} (tx: ${log.transactionHash})`,
       );
     }
+
+    return newDepositsCount;
   }
 
   private async createDeposit(data: {
@@ -461,35 +504,68 @@ export class DepositMonitorService {
     await this.updateDepositConfirmations(deposit.id);
   }
 
-  private async updatePendingDeposits() {
-    // Get all pending deposits
-    const pendingDeposits = await this.prisma.deposit.findMany({
-      where: {
-        status: TransactionStatus.PENDING,
-      },
-      include: {
-        wallet: {
-          include: {
-            user: true,
+  private async updatePendingDeposits(): Promise<{ updated: number }> {
+    let updatedCount = 0;
+    const errors: Array<{ depositId: string; error: string }> = [];
+
+    try {
+      // Get all pending deposits
+      const pendingDeposits = await this.prisma.deposit.findMany({
+        where: {
+          status: TransactionStatus.PENDING,
+        },
+        include: {
+          wallet: {
+            include: {
+              user: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    this.logger.debug(`Updating ${pendingDeposits.length} pending deposits`);
+      this.logger.debug(`Updating ${pendingDeposits.length} pending deposits`);
 
-    for (const deposit of pendingDeposits) {
-      try {
-        await this.updateDepositConfirmations(deposit.id);
-      } catch (error) {
-        this.logger.error(
-          `Error updating deposit ${deposit.id}: ${error.message}`,
+      // Process deposits in parallel for better performance
+      const results = await Promise.allSettled(
+        pendingDeposits.map((deposit) => this.updateDepositConfirmations(deposit.id)),
+      );
+
+      // Analyze results
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          if (result.value) {
+            updatedCount++;
+          }
+        } else {
+          const deposit = pendingDeposits[index];
+          errors.push({
+            depositId: deposit.id,
+            error: result.reason?.message || 'Unknown error',
+          });
+          this.logger.error(
+            `Error updating deposit ${deposit.id}: ${result.reason?.message}`,
+            result.reason?.stack,
+          );
+        }
+      });
+
+      if (errors.length > 0) {
+        this.logger.warn(
+          `Updated ${updatedCount} deposits with ${errors.length} errors`,
         );
       }
+
+      return { updated: updatedCount };
+    } catch (error) {
+      this.logger.error(
+        `Critical error in updatePendingDeposits: ${error.message}`,
+        error.stack,
+      );
+      throw error;
     }
   }
 
-  private async updateDepositConfirmations(depositId: string) {
+  private async updateDepositConfirmations(depositId: string): Promise<boolean> {
     const deposit = await this.prisma.deposit.findUnique({
       where: { id: depositId },
       include: {
@@ -502,7 +578,7 @@ export class DepositMonitorService {
     });
 
     if (!deposit || deposit.status !== TransactionStatus.PENDING) {
-      return;
+      return false; // No update needed
     }
 
     let confirmations = 0;
@@ -512,7 +588,7 @@ export class DepositMonitorService {
       const suiService = this.blockchain.getSuiService();
       if (!suiService.isConfigured()) {
         this.logger.warn('SUI service not configured, use the public rpc url.');
-        return;
+        return false;
       }
       // For SUI, get current checkpoint
       const currentCheckpoint = await suiService.getCurrentCheckpoint();
@@ -521,7 +597,7 @@ export class DepositMonitorService {
       const solanaService = this.blockchain.getSolanaService();
       if (!solanaService.isConfigured()) {
         this.logger.warn('Solana service not configured');
-        return;
+        return false;
       }
       // For Solana, get current slot
       const currentSlot = await solanaService.getCurrentSlot();
@@ -530,7 +606,7 @@ export class DepositMonitorService {
       const tonService = this.blockchain.getTonService();
       if (!tonService.isConfigured()) {
         this.logger.warn('TON service not configured');
-        return;
+        return false;
       }
       // For TON, confirmations are instant once transaction is in blockchain
       confirmations = deposit.requiredConfirms; // Auto-confirm TON transactions
@@ -550,7 +626,10 @@ export class DepositMonitorService {
     // Check if confirmed
     if (confirmations >= deposit.requiredConfirms) {
       await this.confirmDeposit(deposit);
+      return true; // Deposit was confirmed
     }
+
+    return false; // Still pending
   }
 
   private async confirmDeposit(deposit: any) {
@@ -731,15 +810,19 @@ export class DepositMonitorService {
       },
     });
 
-    for (const deposit of pendingDeposits) {
-      try {
-        await this.updateDepositConfirmations(deposit.id);
-      } catch (error) {
-        this.logger.error(
-          `Error updating deposit ${deposit.id}: ${error.message}`,
-        );
-      }
-    }
+    // Process pending deposits in parallel for better performance
+    await Promise.allSettled(
+      pendingDeposits.map(async (deposit) => {
+        try {
+          await this.updateDepositConfirmations(deposit.id);
+        } catch (error) {
+          this.logger.error(
+            `Error updating deposit ${deposit.id}: ${error.message}`,
+          );
+          throw error; // Re-throw to be caught by Promise.allSettled
+        }
+      }),
+    );
 
     // Get updated wallet balance
     const updatedWallet = await this.prisma.wallet.findUnique({
@@ -922,7 +1005,7 @@ export class DepositMonitorService {
   // SOLANA DEPOSIT MONITORING
   // ============================================
 
-  private async checkSolanaWalletForDeposits(wallet: any) {
+  private async checkSolanaWalletForDeposits(wallet: any): Promise<number> {
     const {
       network,
       stablecoinType,
@@ -937,7 +1020,7 @@ export class DepositMonitorService {
       !tokenConfig ||
       tokenConfig.address === '0x0000000000000000000000000000000000000000'
     ) {
-      return; // Token not available on Solana
+      return 0; // Token not available on Solana
     }
 
     try {
@@ -945,7 +1028,7 @@ export class DepositMonitorService {
 
       if (!solanaService.isConfigured()) {
         this.logger.warn('Solana service not configured');
-        return;
+        return 0;
       }
 
       // Get last processed signature for this wallet
@@ -964,6 +1047,8 @@ export class DepositMonitorService {
       this.logger.debug(
         `Found ${signatures.length} signatures for Solana wallet ${depositAddress}`,
       );
+
+      let newDepositsCount = 0;
 
       for (const sig of signatures) {
         // Check if we already processed this transaction
@@ -1014,14 +1099,19 @@ export class DepositMonitorService {
           blockNumber: BigInt(transaction.slot),
         });
 
+        newDepositsCount++;
+
         this.logger.log(
           `New Solana deposit detected: ${amountDecimal.toString()} ${stablecoinType} to wallet ${depositAddress} (sig: ${sig.signature})`,
         );
       }
+
+      return newDepositsCount;
     } catch (error) {
       this.logger.error(
         `Error checking Solana wallet ${depositAddress}: ${error.message}`,
       );
+      throw error;
     }
   }
 
@@ -1029,7 +1119,7 @@ export class DepositMonitorService {
   // TON DEPOSIT MONITORING
   // ============================================
 
-  private async checkTonWalletForDeposits(wallet: any) {
+  private async checkTonWalletForDeposits(wallet: any): Promise<number> {
     const {
       network,
       stablecoinType,
@@ -1044,7 +1134,7 @@ export class DepositMonitorService {
       !tokenConfig ||
       tokenConfig.address === '0x0000000000000000000000000000000000000000'
     ) {
-      return; // Token not available on TON
+      return 0; // Token not available on TON
     }
 
     try {
@@ -1052,7 +1142,7 @@ export class DepositMonitorService {
 
       if (!tonService.isConfigured()) {
         this.logger.warn('TON service not configured');
-        return;
+        return 0;
       }
 
       // Get recent transactions for this address
@@ -1061,6 +1151,8 @@ export class DepositMonitorService {
       this.logger.debug(
         `Found ${transactions.length} transactions for TON wallet ${depositAddress}`,
       );
+
+      let newDepositsCount = 0;
 
       for (const tx of transactions) {
         // Check if we already processed this transaction
@@ -1102,6 +1194,8 @@ export class DepositMonitorService {
             blockNumber: BigInt(tx.timestamp),
           });
 
+          newDepositsCount++;
+
           this.logger.log(
             `New TON jetton deposit detected: ${amountDecimal.toString()} ${stablecoinType} to wallet ${depositAddress} (tx: ${tx.hash})`,
           );
@@ -1137,15 +1231,20 @@ export class DepositMonitorService {
             blockNumber: BigInt(tx.timestamp),
           });
 
+          newDepositsCount++;
+
           this.logger.log(
             `New TON deposit detected: ${amountDecimal.toString()} TON to wallet ${depositAddress} (tx: ${tx.hash})`,
           );
         }
       }
+
+      return newDepositsCount;
     } catch (error) {
       this.logger.error(
         `Error checking TON wallet ${depositAddress}: ${error.message}`,
       );
+      throw error;
     }
   }
 
@@ -1153,7 +1252,7 @@ export class DepositMonitorService {
   // SUI DEPOSIT MONITORING
   // ============================================
 
-  private async checkSuiWalletForDeposits(wallet: any) {
+  private async checkSuiWalletForDeposits(wallet: any): Promise<number> {
     const {
       network,
       stablecoinType,
@@ -1168,7 +1267,7 @@ export class DepositMonitorService {
       !tokenConfig ||
       tokenConfig.address === '0x0000000000000000000000000000000000000000'
     ) {
-      return; // Token not available on SUI
+      return 0; // Token not available on SUI
     }
 
     try {
@@ -1176,7 +1275,7 @@ export class DepositMonitorService {
 
       if (!suiService.isConfigured()) {
         this.logger.warn('SUI service not configured');
-        return;
+        return 0;
       }
 
       // Get recent transactions (paginated)
@@ -1185,6 +1284,8 @@ export class DepositMonitorService {
         null,
         50,
       );
+
+      let newDepositsCount = 0;
 
       for (const txDigest of txResult.data) {
         // Check if already processed
@@ -1234,14 +1335,19 @@ export class DepositMonitorService {
           blockNumber: BigInt(checkpoint),
         });
 
+        newDepositsCount++;
+
         this.logger.log(
           `New SUI deposit detected: ${amountDecimal.toString()} ${stablecoinType} to wallet ${depositAddress} (digest: ${txDigest})`,
         );
       }
+
+      return newDepositsCount;
     } catch (error) {
       this.logger.error(
         `Error checking SUI wallet ${depositAddress}: ${error.message}`,
       );
+      throw error;
     }
   }
 

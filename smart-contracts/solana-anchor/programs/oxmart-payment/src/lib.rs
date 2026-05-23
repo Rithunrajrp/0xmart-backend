@@ -49,24 +49,28 @@ pub mod oxmart_payment {
         // Validate amount
         require!(amount > 0, ErrorCode::InvalidAmount);
 
+        // LOW-04 FIX: Validate product ID length
+        require!(product_id.len() > 0 && product_id.len() <= 50, ErrorCode::ProductIdTooLong);
+
         // Check if order already processed
         let order_record = &ctx.accounts.order_record;
         require!(!order_record.processed, ErrorCode::OrderAlreadyProcessed);
 
-        // Calculate fees
+        // MEDIUM-04 FIX: Proper error handling for overflow instead of unwrap()
         let platform_fee = (amount as u128)
             .checked_mul(config.platform_fee_bps as u128)
-            .unwrap()
+            .ok_or(ErrorCode::MathOverflow)?
             .checked_div(10000)
-            .unwrap() as u64;
+            .ok_or(ErrorCode::MathOverflow)? as u64;
 
         let commission = (amount as u128)
             .checked_mul(commission_bps as u128)
-            .unwrap()
+            .ok_or(ErrorCode::MathOverflow)?
             .checked_div(10000)
-            .unwrap() as u64;
+            .ok_or(ErrorCode::MathOverflow)? as u64;
 
-        let net_amount = amount.checked_sub(platform_fee).unwrap();
+        let net_amount = amount.checked_sub(platform_fee)
+            .ok_or(ErrorCode::MathOverflow)?;
 
         // Transfer tokens from buyer to hot wallet
         let cpi_accounts = Transfer {
@@ -132,19 +136,22 @@ pub mod oxmart_payment {
         let order_record = &ctx.accounts.order_record;
         require!(!order_record.processed, ErrorCode::OrderAlreadyProcessed);
 
+        // MEDIUM-NEW-01 FIX: Use proper error handling instead of unwrap()
         let platform_fee = (total_amount as u128)
             .checked_mul(config.platform_fee_bps as u128)
-            .unwrap()
+            .ok_or(ErrorCode::MathOverflow)?
             .checked_div(10000)
-            .unwrap() as u64;
+            .ok_or(ErrorCode::MathOverflow)? as u64;
 
         let commission = (total_amount as u128)
             .checked_mul(commission_bps as u128)
-            .unwrap()
+            .ok_or(ErrorCode::MathOverflow)?
             .checked_div(10000)
-            .unwrap() as u64;
+            .ok_or(ErrorCode::MathOverflow)? as u64;
 
-        let net_amount = total_amount.checked_sub(platform_fee).unwrap();
+        let net_amount = total_amount
+            .checked_sub(platform_fee)
+            .ok_or(ErrorCode::MathOverflow)?;
 
         // Transfer tokens
         let cpi_accounts = Transfer {
@@ -195,6 +202,9 @@ pub mod oxmart_payment {
         new_hot_wallet: Pubkey,
     ) -> Result<()> {
         let config = &mut ctx.accounts.config;
+        // LOW-05 FIX: Check if new wallet is same as current
+        require!(config.hot_wallet != new_hot_wallet, ErrorCode::SameHotWallet);
+
         let old_hot_wallet = config.hot_wallet;
         config.hot_wallet = new_hot_wallet;
 
@@ -458,4 +468,16 @@ pub enum ErrorCode {
 
     #[msg("Unauthorized")]
     Unauthorized,
+
+    // MEDIUM-04 FIX: Add proper overflow error
+    #[msg("Math overflow in fee calculation")]
+    MathOverflow,
+
+    // LOW-04 FIX: Add product ID validation error
+    #[msg("Product ID too long (max 50 characters)")]
+    ProductIdTooLong,
+
+    // LOW-05 FIX: Add same hot wallet error
+    #[msg("New hot wallet is same as current")]
+    SameHotWallet,
 }

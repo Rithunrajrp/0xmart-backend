@@ -73,14 +73,33 @@ export class MerchantController {
     type: Number,
     description: 'Number of orders to return (default: 5)',
   })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    type: String,
+    description: 'Filter orders by status',
+  })
   @ApiResponse({ status: 200, description: 'Returns merchant orders' })
   @ApiResponse({ status: 404, description: 'Merchant profile not found' })
   async getOrders(
     @CurrentUser() user: { id: string },
     @Query('limit') limit?: string,
+    @Query('status') status?: string,
   ) {
-    const limitNum = limit ? parseInt(limit, 10) : 5;
-    return this.merchantService.getMerchantOrders(user.id, limitNum);
+    const limitNum = limit ? parseInt(limit, 10) : 50;
+    return this.merchantService.getMerchantOrders(user.id, limitNum, status);
+  }
+
+  @Patch('orders/:id/status')
+  @ApiOperation({ summary: 'Update order status for a merchant order' })
+  @ApiResponse({ status: 200, description: 'Order status updated successfully' })
+  @ApiResponse({ status: 404, description: 'Order not found or access denied' })
+  async updateOrderStatus(
+    @CurrentUser() user: { id: string },
+    @Param('id') id: string,
+    @Body() body: { status: string; trackingNumber?: string },
+  ) {
+    return this.merchantService.updateMerchantOrderStatus(user.id, id, body.status, body.trackingNumber);
   }
 
   @Get('products')

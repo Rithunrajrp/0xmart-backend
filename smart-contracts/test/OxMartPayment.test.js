@@ -331,7 +331,7 @@ describe("OxMartPayment", function () {
           apiKeyOwner.address,
           500
         )
-      ).to.be.revertedWith("No products");
+      ).to.be.revertedWith("Invalid batch size");
     });
 
     it("Should prevent double-spending batch orders", async function () {
@@ -566,7 +566,7 @@ describe("OxMartPayment", function () {
           apiKeyOwner.address,
           500
         )
-      ).to.be.revertedWithCustomError(payment, "EnforcedPause");
+      ).to.be.revertedWith("Contract paused");
 
       // Unpause
       await payment.connect(owner).unpause();
@@ -593,7 +593,15 @@ describe("OxMartPayment", function () {
 
       const ownerBalanceBefore = await usdt.balanceOf(owner.address);
 
-      await payment.connect(owner).emergencyWithdraw(await usdt.getAddress());
+      // Initiate withdrawal
+      await payment.connect(owner).initiateEmergencyWithdrawal(await usdt.getAddress());
+
+      // Fast forward 48 hours
+      await ethers.provider.send("evm_increaseTime", [48 * 60 * 60]);
+      await ethers.provider.send("evm_mine");
+
+      // Execute withdrawal
+      await payment.connect(owner).executeEmergencyWithdrawal();
 
       const ownerBalanceAfter = await usdt.balanceOf(owner.address);
       expect(ownerBalanceAfter - ownerBalanceBefore).to.equal(amount);
@@ -603,7 +611,7 @@ describe("OxMartPayment", function () {
       const { payment, usdt, owner } = await loadFixture(deployContractFixture);
 
       await expect(
-        payment.connect(owner).emergencyWithdraw(await usdt.getAddress())
+        payment.connect(owner).initiateEmergencyWithdrawal(await usdt.getAddress())
       ).to.be.revertedWith("No balance");
     });
   });

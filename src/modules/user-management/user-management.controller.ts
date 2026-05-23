@@ -20,6 +20,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { UserRole, UserType } from '@prisma/client';
 
 @ApiTags('user-management')
@@ -53,7 +54,7 @@ export class UserManagementController {
   updateUserType(
     @Param('userId') userId: string,
     @Body() updateUserTypeDto: UpdateUserTypeDto,
-    @CurrentUser() currentUser: any,
+    @CurrentUser() currentUser: AuthenticatedUser,
   ) {
     return this.userManagementService.updateUserType(
       userId,
@@ -64,7 +65,8 @@ export class UserManagementController {
   }
 
   @Get('users/:userId/upgrade-status')
-  @ApiOperation({ summary: 'Get user upgrade status and requirements' })
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get user upgrade status and requirements (Admin only)' })
   @ApiResponse({ status: 200 })
   getUserUpgradeStatus(@Param('userId') userId: string) {
     return this.userManagementService.getUserUpgradeStatus(userId);
@@ -73,7 +75,7 @@ export class UserManagementController {
   @Get('me/upgrade-status')
   @ApiOperation({ summary: 'Get current user upgrade status' })
   @ApiResponse({ status: 200 })
-  getMyUpgradeStatus(@CurrentUser() user: any) {
+  getMyUpgradeStatus(@CurrentUser() user: AuthenticatedUser) {
     return this.userManagementService.getUserUpgradeStatus(user.id);
   }
 

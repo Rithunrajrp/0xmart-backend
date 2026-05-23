@@ -294,7 +294,7 @@ export class UsersService {
     }
 
     // Generate OTPs for current credentials
-    const emailOtp = this.otpService.storeOtp(user.email, 'email');
+    const emailOtp = await this.otpService.storeOtp(user.email, 'email');
     const firstName = user.email.split('@')[0];
 
     await this.emailService.sendOtpEmail(user.email, emailOtp, firstName);
@@ -305,7 +305,7 @@ export class UsersService {
       const phone = user.phoneNumber.replace(countryCode, '');
       await this.twilioService.sendOtp(countryCode, phone);
     } else if (user.phoneNumber) {
-      const phoneOtp = this.otpService.storeOtp(user.phoneNumber, 'phone');
+      const phoneOtp = await this.otpService.storeOtp(user.phoneNumber, 'phone');
       this.logger.log(`[DEV MODE] Phone OTP for ${user.phoneNumber}: ${phoneOtp}`);
     }
 
@@ -342,7 +342,7 @@ export class UsersService {
       const phone = user.phoneNumber.replace(countryCode, '');
       isPhoneValid = await this.twilioService.verifyOtp(countryCode, phone, phoneOtp);
     } else if (user.phoneNumber) {
-      isPhoneValid = this.otpService.verifyOtp(user.phoneNumber, phoneOtp, 'phone');
+      isPhoneValid = await this.otpService.verifyOtp(user.phoneNumber, phoneOtp, 'phone');
     }
 
     if (!isPhoneValid) {
@@ -369,7 +369,7 @@ export class UsersService {
     }
 
     // Generate OTP for new email
-    const emailOtp = this.otpService.storeOtp(normalizedEmail, 'email');
+    const emailOtp = await this.otpService.storeOtp(normalizedEmail, 'email');
     const firstName = normalizedEmail.split('@')[0];
 
     await this.emailService.sendOtpEmail(normalizedEmail, emailOtp, firstName);
@@ -484,7 +484,7 @@ export class UsersService {
       const phone = pending.newValue.substring(pending.newValue.length - 10);
       isValid = await this.twilioService.verifyOtp(countryCode, phone, phoneOtp);
     } else {
-      isValid = this.otpService.verifyOtp(pending.newValue, phoneOtp, 'phone');
+      isValid = await this.otpService.verifyOtp(pending.newValue, phoneOtp, 'phone');
     }
 
     if (!isValid) {

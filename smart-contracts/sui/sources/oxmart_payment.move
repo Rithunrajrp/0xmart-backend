@@ -143,15 +143,15 @@ module oxmart::payment {
         // Validate commission
         assert!(commission_bps <= MAX_COMMISSION_BPS, E_INVALID_COMMISSION);
 
-        // Mark order as processed
-        table::add(&mut config.processed_orders, order_id, true);
-
         // Calculate fees
         let platform_fee = (amount * config.platform_fee_bps) / 10000;
         let commission = (amount * commission_bps) / 10000;
 
-        // Transfer payment to hot wallet
+        // Transfer payment to hot wallet BEFORE marking as processed (best practice)
         transfer::public_transfer(payment, config.hot_wallet);
+
+        // Mark order as processed AFTER transfer
+        table::add(&mut config.processed_orders, order_id, true);
 
         // Emit event
         event::emit(PaymentReceived {
@@ -191,12 +191,15 @@ module oxmart::payment {
         assert!(total_amount > 0, E_INVALID_AMOUNT);
         assert!(commission_bps <= MAX_COMMISSION_BPS, E_INVALID_COMMISSION);
 
-        table::add(&mut config.processed_orders, order_id, true);
-
+        // Calculate fees
         let platform_fee = (total_amount * config.platform_fee_bps) / 10000;
         let commission = (total_amount * commission_bps) / 10000;
 
+        // Transfer payment BEFORE marking as processed (best practice)
         transfer::public_transfer(payment, config.hot_wallet);
+
+        // Mark order as processed AFTER transfer
+        table::add(&mut config.processed_orders, order_id, true);
 
         event::emit(PaymentReceived {
             order_id,

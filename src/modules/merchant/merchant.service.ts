@@ -110,7 +110,7 @@ export class MerchantService {
     };
   }
 
-  async getMerchantOrders(userId: string, limit: number = 5) {
+  async getMerchantOrders(userId: string, limit: number = 5, status?: string) {
     // Find the seller linked to this user
     const seller = await this.prisma.seller.findUnique({
       where: { userId },
@@ -130,6 +130,7 @@ export class MerchantService {
             },
           },
         },
+        ...(status && { status: status as any }),
       },
       include: {
         user: {
@@ -165,17 +166,75 @@ export class MerchantService {
         id: order.id,
         orderNumber: order.orderNumber,
         customerEmail: order.user.email,
-        customerName: order.shippingAddr?.fullName || 'N/A',
+        customerName: (order.shippingAddress as any)?.name || 'N/A',
         total: sellerItemsTotal.toFixed(2),
         currency: order.stablecoinType,
         status: order.status,
         createdAt: order.createdAt,
+        shippingAddress: order.shippingAddress,
+        items: order.items.map((item) => ({
+          productId: item.productId,
+          product: item.product,
+          quantity: item.quantity,
+          totalPrice: item.totalPrice.toString(),
+        })),
       };
     });
 
     return {
       orders: formattedOrders,
       total: formattedOrders.length,
+    };
+  }
+
+  async updateMerchantOrderStatus(userId: string, orderId: string, status: string, trackingNumber?: string) {
+    const seller = await this.prisma.seller.findUnique({
+      where: { userId },
+    });
+
+    if (!seller) {
+      throw new NotFoundException('Merchant profile not found for this user');
+    }
+
+    // Verify the order contains at least one product belonging to this seller
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        items: {
+          some: {
+            product: {
+              sellerId: seller.id,
+            },
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found or access denied');
+    }
+
+    const updateData: any = { status };
+
+    if (trackingNumber) {
+      updateData.trackingNumber = trackingNumber;
+    }
+    if (status === 'SHIPPED') {
+      updateData.shippedAt = new Date();
+    }
+    if (status === 'DELIVERED') {
+      updateData.deliveredAt = new Date();
+    }
+
+    const updatedOrder = await this.prisma.order.update({
+      where: { id: orderId },
+      data: updateData,
+    });
+
+    return {
+      message: 'Order status updated successfully',
+      orderId: updatedOrder.id,
+      status: updatedOrder.status,
     };
   }
 
@@ -263,6 +322,7 @@ export class MerchantService {
           rating: new Decimal(0),
           totalReviews: 0,
           images: createProductDto.images || [],
+          availableCountries: createProductDto.availableCountries || [],
           prices: {
             create: createProductDto.prices.map((p) => ({
               stablecoinType: p.currency as any, // Map currency to stablecoinType

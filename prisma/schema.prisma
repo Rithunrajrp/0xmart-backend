@@ -8,45 +8,48 @@ datasource db {
 }
 
 model User {
-  id                String        @id @default(uuid())
-  phoneNumber       String        @unique
-  countryCode       String
-  email             String?       @unique
-  role              UserRole      @default(USER)
-  status            UserStatus    @default(ACTIVE)
-  kycStatus         KYCStatus     @default(NOT_STARTED)
-  kycSubmittedAt    DateTime?
-  kycApprovedAt     DateTime?
-  kycRejectedAt     DateTime?
+  id                 String          @id @default(uuid())
+  phoneNumber        String          @unique
+  countryCode        String
+  email              String?         @unique
+  role               UserRole        @default(USER)
+  status             UserStatus      @default(ACTIVE)
+  kycStatus          KYCStatus       @default(NOT_STARTED)
+  kycSubmittedAt     DateTime?
+  kycApprovedAt      DateTime?
+  kycRejectedAt      DateTime?
   kycRejectionReason String?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  lastLoginAt       DateTime?
-  metadata          Json?
-  twoFactorEnabled  Boolean       @default(false)
-  twoFactorSecret   String?
-  userType          UserType      @default(STANDARD)
-  referralCode      String?       @unique
-  referredBy        String?
-  totalSpent        Decimal       @default(0) @db.Decimal(20, 8)
-  totalReferrals    Int           @default(0)
-  subscriptionTier  String        @default("free")
-  apiKeys           ApiKey[]
-  auditLogs         AuditLog[]
-  createdEmployees  Employee[]    @relation("CreatedByUser")
-  employeeProfile   Employee?
-  favorites         Favorite[]
-  kycDocuments      KYCDocument[]
-  reviewedDocuments KYCDocument[] @relation("ReviewedDocuments")
-  orders            Order[]
-  sellerProfile     Seller?
-  transactions      Transaction[]
-  addresses         UserAddress[]
-  sessions          UserSession[]
-  wallets           Wallet[]
-  referrer          User?         @relation("UserReferrals", fields: [referredBy], references: [id])
-  referrals         User[]        @relation("UserReferrals")
-  rewards           Reward[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  lastLoginAt        DateTime?
+  metadata           Json?
+  twoFactorEnabled   Boolean         @default(false)
+  twoFactorSecret    String?
+  userType           UserType        @default(STANDARD)
+  referralCode       String?         @unique
+  referredBy         String?
+  totalSpent         Decimal         @default(0) @db.Decimal(20, 8)
+  totalReferrals     Int             @default(0)
+  subscriptionTier   String          @default("free")
+  apiKeys            ApiKey[]
+  auditLogs          AuditLog[]
+  createdEmployees   Employee[]      @relation("CreatedByUser")
+  employeeProfile    Employee?
+  favorites          Favorite[]
+  kycDocuments       KYCDocument[]
+  reviewedDocuments  KYCDocument[]   @relation("ReviewedDocuments")
+  orders             Order[]
+  sellerProfile      Seller?
+  transactions       Transaction[]
+  addresses          UserAddress[]
+  sessions           UserSession[]
+  wallets            Wallet[]
+  referrer           User?           @relation("UserReferrals", fields: [referredBy], references: [id])
+  referrals          User[]          @relation("UserReferrals")
+  rewards            Reward[]
+  chatSessions       ChatSession[]
+  oxlienSettings     OxlienSettings?
+  iotDevices         IoTDevice[]
 
   @@index([phoneNumber])
   @@index([email])
@@ -75,20 +78,20 @@ model UserSession {
 }
 
 model KYCDocument {
-  id                String            @id @default(uuid())
-  userId            String
-  documentType      DocumentType      // ID_CARD, PASSPORT, DRIVERS_LICENSE, SELFIE, ADDRESS_PROOF
-  documentUrl       String            // S3 URL
-  backImageUrl      String?           // For two-sided documents
-  status            DocumentStatus    @default(PENDING)
-  submittedAt       DateTime          @default(now())
-  reviewedAt        DateTime?
-  reviewedBy        String?           // Admin user ID
-  rejectionReason   String?
-  metadata          Json?             // Extra data like document number, expiry, etc.
-  ocrData           Json?             // OCR extracted data (optional)
-  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reviewer          User?             @relation("ReviewedDocuments", fields: [reviewedBy], references: [id])
+  id              String         @id @default(uuid())
+  userId          String
+  documentType    DocumentType // ID_CARD, PASSPORT, DRIVERS_LICENSE, SELFIE, ADDRESS_PROOF
+  documentUrl     String // S3 URL
+  backImageUrl    String? // For two-sided documents
+  status          DocumentStatus @default(PENDING)
+  submittedAt     DateTime       @default(now())
+  reviewedAt      DateTime?
+  reviewedBy      String? // Admin user ID
+  rejectionReason String?
+  metadata        Json? // Extra data like document number, expiry, etc.
+  ocrData         Json? // OCR extracted data (optional)
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewer        User?          @relation("ReviewedDocuments", fields: [reviewedBy], references: [id])
 
   @@index([userId])
   @@index([status])
@@ -97,24 +100,27 @@ model KYCDocument {
 }
 
 model Wallet {
-  id                   String         @id @default(uuid())
-  userId               String
-  stablecoinType       StablecoinType
-  network              NetworkType
-  depositAddress       String         // Removed @unique to allow EVM address reuse
-  encryptedPrivateKey  String?        // Encrypted private key for sweep functionality
-  balance              Decimal        @default(0) @db.Decimal(20, 8)
-  lockedBalance        Decimal        @default(0) @db.Decimal(20, 8)
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
-  deposits             Deposit[]
-  user                 User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  withdrawals          Withdrawal[]
-  sweepTransactions    SweepTransaction[]
+  id                  String             @id @default(uuid())
+  userId              String
+  stablecoinType      StablecoinType
+  network             NetworkType
+  depositAddress      String // Removed @unique to allow EVM address reuse
+  encryptedPrivateKey String? // Encrypted private key for sweep functionality
+  balance             Decimal            @default(0) @db.Decimal(20, 8)
+  lockedBalance       Decimal            @default(0) @db.Decimal(20, 8)
+  lastDepositAt       DateTime? // Last deposit timestamp for deposit monitor optimization
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  deposits            Deposit[]
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  withdrawals         Withdrawal[]
+  sweepTransactions   SweepTransaction[]
 
   @@unique([userId, stablecoinType, network])
   @@index([userId])
   @@index([depositAddress])
+  @@index([lastDepositAt]) // Index for deposit monitor to prioritize recently active wallets
+  @@index([createdAt]) // Index for deposit monitor to prioritize newly created wallets
   @@map("wallets")
 }
 
@@ -260,6 +266,8 @@ model Transaction {
   @@index([network])
   @@index([apiKeyId])
   @@index([createdAt])
+  @@index([userId, type]) // Composite index for querying user's transactions by type
+  @@index([userId, createdAt]) // Composite index for user transaction history sorted by date
   @@map("transactions")
 }
 
@@ -299,33 +307,37 @@ model Withdrawal {
   processedAt   DateTime?
   completedAt   DateTime?
   failureReason String?
+  retryCount    Int               @default(0)
+  lastRetryAt   DateTime?
+  nextRetryAt   DateTime?
   wallet        Wallet            @relation(fields: [walletId], references: [id], onDelete: Cascade)
 
   @@index([walletId])
   @@index([status])
+  @@index([status, nextRetryAt])
   @@map("withdrawals")
 }
 
 model SweepTransaction {
-  id               String            @id @default(uuid())
-  walletId         String
-  depositId        String?
-  fromAddress      String            // User's deposit address
-  toAddress        String            // Hot wallet address
-  amount           Decimal           @db.Decimal(20, 8)
-  stablecoinType   StablecoinType
-  network          NetworkType
-  txHash           String?           @unique
-  gasUsed          String?
-  gasFee           Decimal?          @db.Decimal(20, 8)
-  status           TransactionStatus @default(PENDING)
-  createdAt        DateTime          @default(now())
-  processedAt      DateTime?
-  completedAt      DateTime?
-  failureReason    String?
-  retryCount       Int               @default(0)
-  maxRetries       Int               @default(3)
-  wallet           Wallet            @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  id             String            @id @default(uuid())
+  walletId       String
+  depositId      String?
+  fromAddress    String // User's deposit address
+  toAddress      String // Hot wallet address
+  amount         Decimal           @db.Decimal(20, 8)
+  stablecoinType StablecoinType
+  network        NetworkType
+  txHash         String?           @unique
+  gasUsed        String?
+  gasFee         Decimal?          @db.Decimal(20, 8)
+  status         TransactionStatus @default(PENDING)
+  createdAt      DateTime          @default(now())
+  processedAt    DateTime?
+  completedAt    DateTime?
+  failureReason  String?
+  retryCount     Int               @default(0)
+  maxRetries     Int               @default(3)
+  wallet         Wallet            @relation(fields: [walletId], references: [id], onDelete: Cascade)
 
   @@index([walletId])
   @@index([status])
@@ -393,6 +405,8 @@ model Seller {
   bankSwiftCode         String?
   payoutWalletAddress   String?
   payoutNetwork         NetworkType?
+  acceptedCurrencies    StablecoinType[] @default([USDT, USDC])  // Stablecoins merchant accepts
+  acceptedNetworks      NetworkType[]    @default([POLYGON, BSC]) // Networks merchant accepts payments on
   commissionRate        Decimal          @default(0.10) @db.Decimal(5, 4)
   minOrderValue         Decimal?         @db.Decimal(20, 8)
   maxOrderValue         Decimal?         @db.Decimal(20, 8)
@@ -413,6 +427,12 @@ model Seller {
   sellerDocuments       SellerDocument[]
   sellerPayouts         SellerPayout[]
   user                  User?            @relation(fields: [userId], references: [id])
+  shopifyStore          ShopifyStore? // Linked Shopify store (optional)
+
+  // Accounting & Settlement relations
+  merchantWallets       MerchantWallet[]
+  merchantBalances      MerchantBalance[]
+  settlements           Settlement[]
 
   @@index([userId])
   @@index([status])
@@ -448,65 +468,81 @@ model SellerDocument {
 }
 
 model Product {
-  id                String            @id @default(uuid())
-  name              String
-  description       String?
-  imageUrl          String?
-  category          String?
-  status            ProductStatus     @default(PENDING_REVIEW)
-  metadata          Json?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  barcode           String?
-  brand             String?
-  dimensions        Json?
-  images            Json?
-  isDigital         Boolean           @default(false)
-  isFeatured        Boolean           @default(false)
-  lowStockThreshold Int               @default(10)
-  metaDescription   String?
-  metaTitle         String?
-  rating            Decimal           @default(0) @db.Decimal(3, 2)
-  sellerId          String
-  shippingClass     String?
-  shortDescription  String?
-  sku               String?
-  slug              String?           @unique
-  specifications    Json?
-  stock             Int               @default(0)
-  subcategory       String?
-  tags              Json?
-  totalReviews      Int               @default(0)
-  videoUrl          String?
-  weight            Decimal?          @db.Decimal(10, 2)
-  hasVariants       Boolean           @default(false)
-  availableCountries String[]         @default([])
-  adClicks          AdClick[]
-  externalOrders    ExternalOrder[]
-  favorites         Favorite[]
-  orderItems        OrderItem[]
-  prices            ProductPrice[]
-  reviews           ProductReview[]
-  seller            Seller            @relation(fields: [sellerId], references: [id])
-  variants          ProductVariant[]
+  id                 String        @id @default(uuid())
+  name               String
+  description        String?
+  imageUrl           String?
+  category           String?
+  status             ProductStatus @default(PENDING_REVIEW)
+  metadata           Json?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  barcode            String?
+  brand              String?
+  dimensions         Json?
+  images             Json?
+  isDigital          Boolean       @default(false)
+  isFeatured         Boolean       @default(false)
+  lowStockThreshold  Int           @default(10)
+  metaDescription    String?
+  metaTitle          String?
+  rating             Decimal       @default(0) @db.Decimal(3, 2)
+  sellerId           String
+  shippingClass      String?
+  shortDescription   String?
+  sku                String?
+  slug               String?       @unique
+  specifications     Json?
+  stock              Int           @default(0)
+  subcategory        String?
+  tags               Json?
+  totalReviews       Int           @default(0)
+  videoUrl           String?
+  weight             Decimal?      @db.Decimal(10, 2)
+  hasVariants        Boolean       @default(false)
+  availableCountries String[]      @default([])
+  discountable       Boolean       @default(true) // Can promotions apply to this product
+  originCountry      String?
+
+  // Product Type relation
+  typeId String?
+  type   ProductType? @relation("ProductTypeRelation", fields: [typeId], references: [id])
+
+  adClicks       AdClick[]
+  externalOrders ExternalOrder[]
+  favorites      Favorite[]
+  orderItems     OrderItem[]
+  prices         ProductPrice[]
+  reviews        ProductReview[]
+  seller         Seller           @relation(fields: [sellerId], references: [id])
+  variants       ProductVariant[]
+  shopifyProduct ShopifyProduct? // Linked Shopify product (optional)
+
+  // New relations for enhanced merchant dashboard
+  categories  ProductCategoryProduct[]
+  collections ProductCollectionProduct[]
+  productTags ProductTagProduct[]
 
   @@index([sellerId])
   @@index([status])
   @@index([category])
   @@index([brand])
   @@index([slug])
+  @@index([typeId])
+  @@index([status, category]) // Composite index for getCategories() query performance
+  @@index([sellerId, status]) // Composite index for seller's product filtering
   @@map("products")
 }
 
 model ProductVariant {
   id              String        @id @default(uuid())
   productId       String
-  name            String        // e.g., "Red - Large - 500g"
+  name            String // e.g., "Red - Large - 500g"
   sku             String?       @unique
-  attributes      Json          // { "color": "Red", "size": "Large", "weight": "500g", "unit": "grams" }
+  attributes      Json // { "color": "Red", "size": "Large", "weight": "500g", "unit": "grams" }
   priceAdjustment Decimal       @default(0) @db.Decimal(20, 8) // Can be positive or negative
   stock           Int           @default(0)
-  images          Json?         // Array of image URLs specific to this variant
+  images          Json? // Array of image URLs specific to this variant
   isDefault       Boolean       @default(false)
   status          VariantStatus @default(ACTIVE)
   createdAt       DateTime      @default(now())
@@ -617,17 +653,21 @@ model Order {
   platformFee        Decimal        @default(0) @db.Decimal(20, 8)
   shippingAddressId  String?
   totalAmount        Decimal        @default(0) @db.Decimal(20, 8)
+  autoPayUsed        Boolean        @default(false)
   transactionHash    String?        @unique
   items              OrderItem[]
   shippingAddr       UserAddress?   @relation(fields: [shippingAddressId], references: [id])
   user               User           @relation(fields: [userId], references: [id])
   transactions       Transaction?
+  shopifyOrder       ShopifyOrder? // Linked Shopify order (optional)
 
   @@index([userId])
   @@index([status])
   @@index([orderNumber])
   @@index([createdAt])
   @@index([transactionHash])
+  @@index([userId, status]) // Composite index for querying user's orders by status
+  @@index([status, createdAt]) // Composite index for admin dashboard - recent orders by status
   @@map("orders")
 }
 
@@ -713,41 +753,41 @@ model ExchangeRate {
 }
 
 model ApiKey {
-  id                  String             @id @default(uuid())
-  userId              String
-  name                String
-  keyHash             String             @unique
-  secretHash          String?
-  prefix              String
-  status              ApiKeyStatus       @default(ACTIVE)
-  lastUsedAt          DateTime?
-  expiresAt           DateTime?
-  rateLimitPerMinute  Int                @default(60)
-  rateLimitPerDay     Int                @default(10000)
-  subscriptionTier    String             @default("free")
-  monthlyQuota        Int                @default(1000)
-  usageThisMonth      Int                @default(0)
-  billingResetAt      DateTime?
-  commissionRate      Decimal            @default(0.05) @db.Decimal(5, 4)
-  totalEarnings       Decimal            @default(0) @db.Decimal(20, 8)
-  pendingEarnings     Decimal            @default(0) @db.Decimal(20, 8)
-  availableEarnings   Decimal            @default(0) @db.Decimal(20, 8)
-  payoutWalletAddress String?
-  payoutNetwork       NetworkType?
-  webhookUrl          String?
-  webhookSecret       String?
-  metadata            Json?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  revokedAt           DateTime?
-  creationFeeAmount   Decimal?           @db.Decimal(20, 8)
-  creationFeePaid     Boolean            @default(false)
-  creationFeeTxHash   String?
+  id                             String                      @id @default(uuid())
+  userId                         String
+  name                           String
+  keyHash                        String                      @unique
+  secretHash                     String?
+  prefix                         String
+  status                         ApiKeyStatus                @default(ACTIVE)
+  lastUsedAt                     DateTime?
+  expiresAt                      DateTime?
+  rateLimitPerMinute             Int                         @default(60)
+  rateLimitPerDay                Int                         @default(10000)
+  subscriptionTier               String                      @default("free")
+  monthlyQuota                   Int                         @default(1000)
+  usageThisMonth                 Int                         @default(0)
+  billingResetAt                 DateTime?
+  commissionRate                 Decimal                     @default(0.05) @db.Decimal(5, 4)
+  totalEarnings                  Decimal                     @default(0) @db.Decimal(20, 8)
+  pendingEarnings                Decimal                     @default(0) @db.Decimal(20, 8)
+  availableEarnings              Decimal                     @default(0) @db.Decimal(20, 8)
+  payoutWalletAddress            String?
+  payoutNetwork                  NetworkType?
+  webhookUrl                     String?
+  webhookSecret                  String?
+  metadata                       Json?
+  createdAt                      DateTime                    @default(now())
+  updatedAt                      DateTime                    @updatedAt
+  revokedAt                      DateTime?
+  creationFeeAmount              Decimal?                    @db.Decimal(20, 8)
+  creationFeePaid                Boolean                     @default(false)
+  creationFeeTxHash              String?
   supportedNetworks              NetworkType[]
-  isTestnetMode                  Boolean                       @default(false) // If true, uses testnet networks for all transactions
-  usePersonalizedRecommendations Boolean                       @default(false) // Enable personalized product recommendations
+  isTestnetMode                  Boolean                     @default(false) // If true, uses testnet networks for all transactions
+  usePersonalizedRecommendations Boolean                     @default(false) // Enable personalized product recommendations
   adClicks                       AdClick[]
-  user                           User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                           User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
   usageLogs                      ApiUsageLog[]
   payouts                        CommissionPayout[]
   commissions                    Commission[]
@@ -781,18 +821,18 @@ model ApiUsageLog {
 }
 
 model ApiKeyRecommendationConfig {
-  id                   String   @id @default(uuid())
-  apiKeyId             String   @unique
-  apiKey               ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
-  selectedProductIds   String[] // Specific products to recommend
-  selectedCategories   String[] // Categories to recommend from
-  minRating            Decimal? @db.Decimal(3, 2) // Minimum product rating
-  maxPrice             Decimal? @db.Decimal(20, 8) // Maximum product price
-  minPrice             Decimal? @db.Decimal(20, 8) // Minimum product price
-  prioritizeInStock    Boolean  @default(true) // Prioritize in-stock products
-  prioritizeHighRated  Boolean  @default(false) // Prioritize high-rated products
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  apiKeyId            String   @unique
+  apiKey              ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  selectedProductIds  String[] // Specific products to recommend
+  selectedCategories  String[] // Categories to recommend from
+  minRating           Decimal? @db.Decimal(3, 2) // Minimum product rating
+  maxPrice            Decimal? @db.Decimal(20, 8) // Maximum product price
+  minPrice            Decimal? @db.Decimal(20, 8) // Minimum product price
+  prioritizeInStock   Boolean  @default(true) // Prioritize in-stock products
+  prioritizeHighRated Boolean  @default(false) // Prioritize high-rated products
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   @@index([apiKeyId])
   @@map("api_key_recommendation_configs")
@@ -1000,6 +1040,8 @@ model Commission {
   @@index([status])
   @@index([createdAt])
   @@index([payoutId])
+  @@index([apiKeyId, status]) // Composite index for querying API key commissions by status
+  @@index([apiKeyId, createdAt]) // Composite index for commission history sorted by date
   @@map("commissions")
 }
 
@@ -1104,8 +1146,6 @@ enum DocumentType {
 enum StablecoinType {
   USDT
   USDC
-  DAI
-  BUSD
 }
 
 enum NetworkType {
@@ -1394,22 +1434,22 @@ enum RewardType {
 }
 
 model Reward {
-  id            String         @id @default(uuid())
+  id            String          @id @default(uuid())
   userId        String
   type          RewardType
-  amount        Decimal?       @db.Decimal(20, 8)
+  amount        Decimal?        @db.Decimal(20, 8)
   currency      StablecoinType?
-  points        Int            @default(0)
-  status        String         @default("EARNED")
+  points        Int             @default(0)
+  status        String          @default("EARNED")
   description   String?
   referenceType String?
   referenceId   String?
   metadata      Json?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
   claimedAt     DateTime?
   expiresAt     DateTime?
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
@@ -1419,20 +1459,20 @@ model Reward {
 }
 
 model NetworkConfig {
-  id                 String      @id @default(uuid())
-  network            NetworkType @unique
-  isEnabled          Boolean     @default(true)
-  displayName        String
-  description        String?
-  iconUrl            String?
-  sortOrder          Int         @default(0)
-  contractDeployed   Boolean     @default(false)
-  contractAddress    String?
-  lastContractCheck  DateTime?
-  metadata           Json?
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-  updatedBy          String?
+  id                String      @id @default(uuid())
+  network           NetworkType @unique
+  isEnabled         Boolean     @default(true)
+  displayName       String
+  description       String?
+  iconUrl           String?
+  sortOrder         Int         @default(0)
+  contractDeployed  Boolean     @default(false)
+  contractAddress   String?
+  lastContractCheck DateTime?
+  metadata          Json?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  updatedBy         String?
 
   @@index([isEnabled])
   @@index([sortOrder])
@@ -1441,24 +1481,1467 @@ model NetworkConfig {
 }
 
 model SystemSettings {
-  id                    String   @id @default("singleton")
-  kycEnabled            Boolean  @default(false)
-  maintenanceMode       Boolean  @default(false)
-  maintenanceMessage    String?
-  registrationEnabled   Boolean  @default(true)
-  withdrawalsEnabled    Boolean  @default(true)
-  depositsEnabled       Boolean  @default(true)
-  fiatPurchaseEnabled   Boolean  @default(true)
-  tokenSwapEnabled      Boolean  @default(false)
-  apiAccessEnabled      Boolean  @default(true)
-  showTestnetBanner     Boolean  @default(true)
-  minWithdrawalAmount   Decimal  @default(10) @db.Decimal(20, 8)
-  maxWithdrawalAmount   Decimal  @default(50000) @db.Decimal(20, 8)
-  withdrawalFeePercent  Decimal  @default(0) @db.Decimal(5, 2)
-  metadata              Json?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  updatedBy             String?
+  id                   String   @id @default("singleton")
+  kycEnabled           Boolean  @default(false)
+  maintenanceMode      Boolean  @default(false)
+  maintenanceMessage   String?
+  registrationEnabled  Boolean  @default(true)
+  withdrawalsEnabled   Boolean  @default(true)
+  depositsEnabled      Boolean  @default(true)
+  fiatPurchaseEnabled  Boolean  @default(true)
+  tokenSwapEnabled     Boolean  @default(false)
+  apiAccessEnabled     Boolean  @default(true)
+  showTestnetBanner    Boolean  @default(true)
+  minWithdrawalAmount  Decimal  @default(10) @db.Decimal(20, 8)
+  maxWithdrawalAmount  Decimal  @default(50000) @db.Decimal(20, 8)
+  withdrawalFeePercent Decimal  @default(0) @db.Decimal(5, 2)
+  metadata             Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  updatedBy            String?
 
   @@map("system_settings")
+}
+
+// AI Chat Models
+model ChatSession {
+  id             String        @id @default(uuid())
+  userId         String?
+  guestId        String?
+  title          String? // Auto-generated from first message
+  isReadOnly     Boolean       @default(false) // True if session expired (10 days after order delivery)
+  relatedOrderId String? // Track which order for expiry calculation
+  context        Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  expiresAt      DateTime?
+  user           User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages       ChatMessage[]
+
+  @@index([userId])
+  @@index([guestId])
+  @@index([createdAt])
+  @@index([isReadOnly])
+  @@index([relatedOrderId])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String      @id @default(uuid())
+  sessionId String
+  role      ChatRole
+  content   String      @db.Text
+  metadata  Json?
+  toolCalls Json?
+  createdAt DateTime    @default(now())
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+// ─── Oxlien & IoT Models ────────────────────────────────────────────────────
+
+model OxlienSettings {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  enabled            Boolean  @default(true)
+  aiModel            String   @default("gpt-4o")
+  autoPayEnabled     Boolean  @default(false)
+  autoPayPerOrder    Decimal  @default(0) @db.Decimal(20, 8)
+  autoPayDaily       Decimal  @default(0) @db.Decimal(20, 8)
+  autoPayMonthly     Decimal  @default(0) @db.Decimal(20, 8)
+  allowedStablecoins String[] @default([])
+  allowedNetworks    String[] @default([])
+  voiceInputEnabled  Boolean  @default(false)
+  voiceOutputEnabled Boolean  @default(false)
+  voiceId            String   @default("alloy")
+  voiceSpeed         Decimal  @default(1) @db.Decimal(3, 1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("oxlien_settings")
+}
+
+model IoTDevice {
+  id                 String     @id @default(uuid())
+  userId             String
+  name               String
+  deviceType         String     @default("generic")
+  mqttBrokerUrl      String
+  mqttTopic          String
+  mqttAuthToken      String?
+  isEnabled          Boolean    @default(true)
+  autoRestockEnabled Boolean    @default(false)
+  maxItemsPerRestock Int        @default(5)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events             IoTEvent[]
+
+  @@index([userId])
+  @@index([isEnabled])
+  @@map("iot_devices")
+}
+
+model IoTEvent {
+  id              String    @id @default(uuid())
+  deviceId        String
+  rawPayload      Json
+  parsedItems     Json?
+  status          String    @default("RECEIVED")
+  injectedMessage String?
+  orderId         String?
+  error           String?
+  createdAt       DateTime  @default(now())
+  device          IoTDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("iot_events")
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  TOOL
+}
+
+// ============================================
+// SHOPIFY INTEGRATION MODELS
+// ============================================
+
+model ShopifyStore {
+  id           String  @id @default(uuid())
+  shopDomain   String  @unique // e.g., "store-name.myshopify.com"
+  shopName     String
+  shopEmail    String
+  shopCurrency String  @default("USD")
+  shopCountry  String?
+
+  // Linked seller account on 0xMart
+  sellerId String? @unique
+  seller   Seller? @relation(fields: [sellerId], references: [id])
+
+  // API credentials for the Shopify app to call our backend
+  apiKey    String @unique @default(uuid())
+  apiSecret String @default(uuid())
+
+  // Sync settings
+  isConnected     Boolean   @default(false)
+  connectedAt     DateTime?
+  syncAllProducts Boolean   @default(false)
+  autoSyncEnabled Boolean   @default(true)
+  commissionRate  Decimal   @default(0.20) @db.Decimal(5, 4) // 20% commission
+
+  // Timestamps
+  lastProductSync DateTime?
+  lastOrderSync   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  products ShopifyProduct[]
+  orders   ShopifyOrder[]
+
+  @@index([shopDomain])
+  @@index([sellerId])
+  @@index([apiKey])
+  @@map("shopify_stores")
+}
+
+model ShopifyProduct {
+  id             String       @id @default(uuid())
+  shopifyStoreId String
+  store          ShopifyStore @relation(fields: [shopifyStoreId], references: [id], onDelete: Cascade)
+
+  // Shopify product info
+  shopifyProductId String // Shopify GID (e.g., "gid://shopify/Product/123")
+  shopifyVariantId String? // Main variant ID
+  shopifyHandle    String
+  title            String
+  description      String?
+  originalPrice    Decimal @db.Decimal(20, 8)
+  originalCurrency String
+  imageUrl         String?
+
+  // 0xMart product info
+  oxmartProductId String?  @unique // Linked 0xMart Product ID
+  oxmartProduct   Product? @relation(fields: [oxmartProductId], references: [id])
+  priceUsdt       Decimal? @db.Decimal(20, 8) // Price with commission in USDT
+
+  // Sync status
+  isSelected   Boolean   @default(false)
+  isSynced     Boolean   @default(false)
+  lastSyncedAt DateTime?
+  syncError    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shopifyStoreId, shopifyProductId])
+  @@index([shopifyProductId])
+  @@index([oxmartProductId])
+  @@map("shopify_products")
+}
+
+model ShopifyOrder {
+  id             String       @id @default(uuid())
+  shopifyStoreId String
+  store          ShopifyStore @relation(fields: [shopifyStoreId], references: [id], onDelete: Cascade)
+
+  // 0xMart order info
+  oxmartOrderId       String  @unique
+  oxmartOrder         Order   @relation(fields: [oxmartOrderId], references: [id])
+  oxmartOrderStatus   String
+  oxmartPaymentStatus String?
+  totalUsdt           Decimal @db.Decimal(20, 8)
+
+  // Shopify order info (created when synced back)
+  shopifyOrderId       String? // Shopify GID after creation
+  shopifyOrderName     String? // Order #1001 etc.
+  shopifyFulfillmentId String?
+
+  // Customer info
+  customerEmail   String?
+  customerName    String?
+  shippingAddress Json?
+
+  // Sync status
+  isSyncedToShopify Boolean   @default(false)
+  syncedAt          DateTime?
+  syncError         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shopifyStoreId])
+  @@index([oxmartOrderId])
+  @@index([shopifyOrderId])
+  @@map("shopify_orders")
+}
+
+// ============================================
+// MERCHANT DASHBOARD ENHANCED MODELS
+// ============================================
+
+// Hierarchical Product Categories
+model ProductCategory {
+  id          String  @id @default(uuid())
+  sellerId    String? // null for global categories
+  name        String
+  slug        String  @unique
+  description String?
+  handle      String  @unique
+  imageUrl    String?
+  isActive    Boolean @default(true)
+  isInternal  Boolean @default(false) // Hidden from storefront
+  rank        Int     @default(0) // For ordering
+  metadata    Json?
+
+  // Hierarchical structure
+  parentId String?
+  parent   ProductCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children ProductCategory[] @relation("CategoryHierarchy")
+
+  // Relations
+  products ProductCategoryProduct[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sellerId])
+  @@index([parentId])
+  @@index([slug])
+  @@index([handle])
+  @@index([isActive])
+  @@map("product_categories")
+}
+
+// Many-to-many relation for products and categories
+model ProductCategoryProduct {
+  id         String          @id @default(uuid())
+  productId  String
+  categoryId String
+  product    Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category   ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt  DateTime        @default(now())
+
+  @@unique([productId, categoryId])
+  @@index([productId])
+  @@index([categoryId])
+  @@map("product_category_products")
+}
+
+// Product Collections (curated groupings)
+model ProductCollection {
+  id          String  @id @default(uuid())
+  sellerId    String?
+  title       String
+  handle      String  @unique
+  description String?
+  imageUrl    String?
+  isActive    Boolean @default(true)
+  metadata    Json?
+
+  // Relations
+  products ProductCollectionProduct[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sellerId])
+  @@index([handle])
+  @@index([isActive])
+  @@map("product_collections")
+}
+
+model ProductCollectionProduct {
+  id           String            @id @default(uuid())
+  productId    String
+  collectionId String
+  position     Int               @default(0)
+  product      Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  collection   ProductCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime          @default(now())
+
+  @@unique([productId, collectionId])
+  @@index([productId])
+  @@index([collectionId])
+  @@map("product_collection_products")
+}
+
+// Product Tags
+model ProductTag {
+  id        String              @id @default(uuid())
+  sellerId  String?
+  value     String
+  metadata  Json?
+  products  ProductTagProduct[]
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@unique([sellerId, value])
+  @@index([sellerId])
+  @@index([value])
+  @@map("product_tags")
+}
+
+model ProductTagProduct {
+  id        String     @id @default(uuid())
+  productId String
+  tagId     String
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tag       ProductTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@unique([productId, tagId])
+  @@index([productId])
+  @@index([tagId])
+  @@map("product_tag_products")
+}
+
+// Product Type (defines attributes for a category of products)
+model ProductType {
+  id        String    @id @default(uuid())
+  sellerId  String?
+  value     String
+  metadata  Json?
+  products  Product[] @relation("ProductTypeRelation")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([sellerId, value])
+  @@index([sellerId])
+  @@map("product_types")
+}
+
+// Promotions (Discounts)
+model Promotion {
+  id       String          @id @default(uuid())
+  sellerId String?
+  code     String?         @unique
+  type     PromotionType
+  status   PromotionStatus @default(DRAFT)
+
+  // Discount configuration
+  isAutomatic Boolean  @default(false)
+  ruleType    String // percentage, fixed_amount, buy_x_get_y
+  ruleValue   Decimal? @db.Decimal(20, 8)
+
+  // Limits
+  usageLimit       Int?
+  usageCount       Int  @default(0)
+  perCustomerLimit Int?
+
+  // Validity
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  // Targeting
+  targetType String? // all, specific_products, specific_categories
+  targetIds  String[] @default([])
+
+  // Conditions
+  minPurchaseAmount Decimal? @db.Decimal(20, 8)
+  minQuantity       Int?
+
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  campaignId String?
+  campaign   Campaign?        @relation(fields: [campaignId], references: [id])
+  usages     PromotionUsage[]
+
+  @@index([sellerId])
+  @@index([code])
+  @@index([status])
+  @@index([type])
+  @@index([startsAt, endsAt])
+  @@index([campaignId])
+  @@map("promotions")
+}
+
+model PromotionUsage {
+  id          String    @id @default(uuid())
+  promotionId String
+  orderId     String?
+  customerId  String?
+  amount      Decimal   @db.Decimal(20, 8)
+  usedAt      DateTime  @default(now())
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  @@index([promotionId])
+  @@index([customerId])
+  @@index([orderId])
+  @@map("promotion_usages")
+}
+
+// Marketing Campaigns
+model Campaign {
+  id          String         @id @default(uuid())
+  sellerId    String?
+  name        String
+  description String?
+  status      CampaignStatus @default(DRAFT)
+
+  // Budget
+  budgetType   String? // total, daily
+  budgetAmount Decimal? @db.Decimal(20, 8)
+  spentAmount  Decimal  @default(0) @db.Decimal(20, 8)
+
+  // Validity
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  promotions Promotion[]
+
+  @@index([sellerId])
+  @@index([status])
+  @@index([startsAt, endsAt])
+  @@map("campaigns")
+}
+
+// Price Lists (for wholesale, VIP, or sale pricing)
+model PriceList {
+  id          String          @id @default(uuid())
+  sellerId    String?
+  name        String
+  description String?
+  type        PriceListType   @default(SALE)
+  status      PriceListStatus @default(DRAFT)
+
+  // Validity
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  // Customer targeting
+  customerGroupIds String[] @default([])
+
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  prices PriceListPrice[]
+
+  @@index([sellerId])
+  @@index([status])
+  @@index([type])
+  @@index([startsAt, endsAt])
+  @@map("price_lists")
+}
+
+model PriceListPrice {
+  id             String         @id @default(uuid())
+  priceListId    String
+  productId      String?
+  variantId      String?
+  stablecoinType StablecoinType
+  price          Decimal        @db.Decimal(20, 8)
+  minQuantity    Int            @default(1)
+  maxQuantity    Int?
+  priceList      PriceList      @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([priceListId, productId, variantId, stablecoinType, minQuantity])
+  @@index([priceListId])
+  @@index([productId])
+  @@index([variantId])
+  @@map("price_list_prices")
+}
+
+// Customer Groups (for segmentation)
+model CustomerGroup {
+  id          String                    @id @default(uuid())
+  sellerId    String?
+  name        String
+  description String?
+  metadata    Json?
+  customers   CustomerGroupMembership[]
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+
+  @@index([sellerId])
+  @@map("customer_groups")
+}
+
+model CustomerGroupMembership {
+  id              String        @id @default(uuid())
+  customerGroupId String
+  userId          String
+  customerGroup   CustomerGroup @relation(fields: [customerGroupId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+
+  @@unique([customerGroupId, userId])
+  @@index([customerGroupId])
+  @@index([userId])
+  @@map("customer_group_memberships")
+}
+
+// Stock Locations (for multi-location inventory)
+model StockLocation {
+  id           String  @id @default(uuid())
+  sellerId     String
+  name         String
+  code         String?
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  state        String?
+  postalCode   String?
+  country      String?
+  phone        String?
+  isActive     Boolean @default(true)
+  metadata     Json?
+
+  // Relations
+  inventoryLevels InventoryLevel[]
+  fulfillments    Fulfillment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sellerId, code])
+  @@index([sellerId])
+  @@index([isActive])
+  @@map("stock_locations")
+}
+
+// Inventory Levels (stock per variant per location)
+model InventoryLevel {
+  id               String @id @default(uuid())
+  variantId        String
+  locationId       String
+  stockedQuantity  Int    @default(0)
+  reservedQuantity Int    @default(0)
+  incomingQuantity Int    @default(0)
+
+  // Calculated: stockedQuantity - reservedQuantity
+  availableQuantity Int @default(0)
+
+  location     StockLocation         @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
+  adjustments  InventoryAdjustment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([variantId, locationId])
+  @@index([variantId])
+  @@index([locationId])
+  @@index([availableQuantity])
+  @@map("inventory_levels")
+}
+
+// Inventory Adjustments (audit trail)
+model InventoryAdjustment {
+  id               String         @id @default(uuid())
+  inventoryLevelId String
+  quantity         Int // Can be negative for decrements
+  reason           String?
+  referenceType    String? // order, return, manual, etc.
+  referenceId      String?
+  adjustedBy       String?
+  inventoryLevel   InventoryLevel @relation(fields: [inventoryLevelId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+
+  @@index([inventoryLevelId])
+  @@index([referenceType, referenceId])
+  @@index([createdAt])
+  @@map("inventory_adjustments")
+}
+
+// Reservations (hold stock for pending orders)
+model Reservation {
+  id               String         @id @default(uuid())
+  inventoryLevelId String
+  quantity         Int
+  orderId          String?
+  lineItemId       String?
+  expiresAt        DateTime?
+  inventoryLevel   InventoryLevel @relation(fields: [inventoryLevelId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+
+  @@index([inventoryLevelId])
+  @@index([orderId])
+  @@index([expiresAt])
+  @@map("reservations")
+}
+
+// Fulfillments (shipping from locations)
+model Fulfillment {
+  id             String            @id @default(uuid())
+  orderId        String
+  locationId     String?
+  status         FulfillmentStatus @default(NOT_FULFILLED)
+  trackingNumber String?
+  trackingUrl    String?
+  carrier        String?
+  shippedAt      DateTime?
+  deliveredAt    DateTime?
+  cancelledAt    DateTime?
+  metadata       Json?
+  location       StockLocation?    @relation(fields: [locationId], references: [id])
+  items          FulfillmentItem[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([orderId])
+  @@index([locationId])
+  @@index([status])
+  @@map("fulfillments")
+}
+
+model FulfillmentItem {
+  id            String      @id @default(uuid())
+  fulfillmentId String
+  orderItemId   String
+  quantity      Int
+  fulfillment   Fulfillment @relation(fields: [fulfillmentId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@index([fulfillmentId])
+  @@index([orderItemId])
+  @@map("fulfillment_items")
+}
+
+// Returns
+model Return {
+  id           String       @id @default(uuid())
+  orderId      String
+  status       ReturnStatus @default(REQUESTED)
+  reason       String?
+  note         String?
+  refundAmount Decimal?     @db.Decimal(20, 8)
+  requestedAt  DateTime     @default(now())
+  receivedAt   DateTime?
+  processedAt  DateTime?
+  processedBy  String?
+  metadata     Json?
+  items        ReturnItem[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+  @@map("returns")
+}
+
+model ReturnItem {
+  id          String   @id @default(uuid())
+  returnId    String
+  orderItemId String
+  quantity    Int
+  reason      String?
+  note        String?
+  return      Return   @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([returnId])
+  @@index([orderItemId])
+  @@map("return_items")
+}
+
+// Refunds
+model Refund {
+  id             String         @id @default(uuid())
+  orderId        String
+  returnId       String?
+  amount         Decimal        @db.Decimal(20, 8)
+  stablecoinType StablecoinType
+  network        NetworkType?
+  txHash         String?        @unique
+  status         RefundStatus   @default(PENDING)
+  reason         String?
+  note           String?
+  processedAt    DateTime?
+  processedBy    String?
+  metadata       Json?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([orderId])
+  @@index([returnId])
+  @@index([status])
+  @@map("refunds")
+}
+
+// Exchanges
+model Exchange {
+  id               String         @id @default(uuid())
+  orderId          String
+  returnId         String?
+  status           ExchangeStatus @default(REQUESTED)
+  differenceAmount Decimal?       @db.Decimal(20, 8) // Positive if customer owes, negative if refund
+  note             String?
+  processedAt      DateTime?
+  processedBy      String?
+  metadata         Json?
+  items            ExchangeItem[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([orderId])
+  @@index([returnId])
+  @@index([status])
+  @@map("exchanges")
+}
+
+model ExchangeItem {
+  id           String   @id @default(uuid())
+  exchangeId   String
+  orderItemId  String // Original item being exchanged
+  newVariantId String // New variant to receive
+  quantity     Int
+  exchange     Exchange @relation(fields: [exchangeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+
+  @@index([exchangeId])
+  @@index([orderItemId])
+  @@map("exchange_items")
+}
+
+// Claims (for damaged/missing items)
+model Claim {
+  id           String      @id @default(uuid())
+  orderId      String
+  type         ClaimType
+  status       ClaimStatus @default(OPEN)
+  reason       String?
+  description  String?
+  images       Json? // Evidence images
+  refundAmount Decimal?    @db.Decimal(20, 8)
+  resolvedAt   DateTime?
+  resolvedBy   String?
+  resolution   String?
+  metadata     Json?
+  items        ClaimItem[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([orderId])
+  @@index([type])
+  @@index([status])
+  @@map("claims")
+}
+
+model ClaimItem {
+  id          String   @id @default(uuid())
+  claimId     String
+  orderItemId String
+  quantity    Int
+  reason      String?
+  images      Json?
+  claim       Claim    @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([claimId])
+  @@index([orderItemId])
+  @@map("claim_items")
+}
+
+// Order Timeline Events
+model OrderTimelineEvent {
+  id          String   @id @default(uuid())
+  orderId     String
+  type        String // status_change, note_added, fulfillment_created, etc.
+  title       String
+  description String?
+  userId      String? // Who performed the action
+  isInternal  Boolean  @default(false) // Hidden from customer
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([orderId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("order_timeline_events")
+}
+
+// Internal Notes (for orders, products, customers)
+model InternalNote {
+  id         String   @id @default(uuid())
+  entityType String // order, product, customer, etc.
+  entityId   String
+  content    String   @db.Text
+  authorId   String
+  authorName String?
+  isPinned   Boolean  @default(false)
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([entityType, entityId])
+  @@index([authorId])
+  @@map("internal_notes")
+}
+
+// Sales Channels
+model SalesChannel {
+  id          String                @id @default(uuid())
+  sellerId    String?
+  name        String
+  description String?
+  isActive    Boolean               @default(true)
+  isDefault   Boolean               @default(false)
+  metadata    Json?
+  products    SalesChannelProduct[]
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@index([sellerId])
+  @@index([isActive])
+  @@map("sales_channels")
+}
+
+model SalesChannelProduct {
+  id             String       @id @default(uuid())
+  salesChannelId String
+  productId      String
+  salesChannel   SalesChannel @relation(fields: [salesChannelId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([salesChannelId, productId])
+  @@index([salesChannelId])
+  @@index([productId])
+  @@map("sales_channel_products")
+}
+
+// Enums for new models
+enum PromotionType {
+  STANDARD // Regular discount
+  BUYGET // Buy X Get Y
+  FREE_SHIPPING
+}
+
+enum PromotionStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  EXPIRED
+  ARCHIVED
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  PAUSED
+  ENDED
+  ARCHIVED
+}
+
+enum PriceListType {
+  SALE
+  OVERRIDE
+  WHOLESALE
+}
+
+enum PriceListStatus {
+  DRAFT
+  ACTIVE
+  EXPIRED
+  ARCHIVED
+}
+
+enum FulfillmentStatus {
+  NOT_FULFILLED
+  PARTIALLY_FULFILLED
+  FULFILLED
+  PARTIALLY_SHIPPED
+  SHIPPED
+  PARTIALLY_DELIVERED
+  DELIVERED
+  CANCELLED
+}
+
+enum ReturnStatus {
+  REQUESTED
+  RECEIVED
+  PARTIALLY_RECEIVED
+  APPROVED
+  REJECTED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ExchangeStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum ClaimType {
+  REFUND
+  REPLACE
+}
+
+enum ClaimStatus {
+  OPEN
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  RESOLVED
+  CANCELLED
+}
+
+// ============================================
+// ACCOUNTING & SETTLEMENT MODELS
+// ============================================
+
+// Merchant External Wallet - Where merchants receive settlements
+model MerchantWallet {
+  id             String         @id @default(uuid())
+  sellerId       String
+  seller         Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  network        NetworkType
+  stablecoinType StablecoinType
+  walletAddress  String
+  label          String?        // e.g., "Primary USDT Wallet"
+  isVerified     Boolean        @default(false)
+  isDefault      Boolean        @default(false)
+  verifiedAt     DateTime?
+  verifiedBy     String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([sellerId, network, stablecoinType])
+  @@index([sellerId])
+  @@index([walletAddress])
+  @@map("merchant_wallets")
+}
+
+// Merchant Balance - Running balance owed to each merchant
+model MerchantBalance {
+  id                String         @id @default(uuid())
+  sellerId          String
+  seller            Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  stablecoinType    StablecoinType
+
+  // Balances (all in the same stablecoin)
+  pendingBalance    Decimal        @default(0) @db.Decimal(20, 8) // From recent orders, not yet available
+  availableBalance  Decimal        @default(0) @db.Decimal(20, 8) // Ready for settlement
+  totalEarned       Decimal        @default(0) @db.Decimal(20, 8) // Lifetime gross earnings
+  totalSettled      Decimal        @default(0) @db.Decimal(20, 8) // Lifetime settlements paid
+  totalCommission   Decimal        @default(0) @db.Decimal(20, 8) // Lifetime platform commission deducted
+  totalRefunded     Decimal        @default(0) @db.Decimal(20, 8) // Lifetime refunds
+
+  // Settlement preferences
+  autoSettleEnabled Boolean        @default(false)
+  autoSettleThreshold Decimal?     @db.Decimal(20, 8) // Auto-settle when available >= threshold
+
+  lastCalculatedAt  DateTime       @default(now())
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@unique([sellerId, stablecoinType])
+  @@index([sellerId])
+  @@index([availableBalance])
+  @@map("merchant_balances")
+}
+
+// Ledger Account - Chart of Accounts for double-entry bookkeeping
+model LedgerAccount {
+  id              String            @id @default(uuid())
+  code            String            @unique // e.g., "1001", "2001", "4001"
+  name            String            // e.g., "Company USDT Wallet - Polygon"
+  type            LedgerAccountType
+  category        String?           // Sub-category for reporting
+  description     String?
+  isActive        Boolean           @default(true)
+  isSystemAccount Boolean           @default(false) // Cannot be deleted
+
+  // For sub-accounts
+  parentId        String?
+  parent          LedgerAccount?    @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children        LedgerAccount[]   @relation("AccountHierarchy")
+
+  // For tracking specific entity balances
+  entityType      String?           // 'SELLER', 'NETWORK', 'STABLECOIN'
+  entityId        String?           // sellerId, network name, etc.
+  stablecoinType  StablecoinType?
+  network         NetworkType?
+
+  // Running balance (updated with each entry)
+  balance         Decimal           @default(0) @db.Decimal(20, 8)
+
+  entries         LedgerEntry[]
+  journalLines    JournalEntryLine[]
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([code])
+  @@index([type])
+  @@index([entityType, entityId])
+  @@index([isActive])
+  @@map("ledger_accounts")
+}
+
+// Journal Entry - The main double-entry record
+model JournalEntry {
+  id              String              @id @default(uuid())
+  entryNumber     String              @unique // Sequential: JE-2024-000001
+  date            DateTime            @default(now())
+  description     String
+
+  // Reference to source transaction
+  referenceType   String?             // 'ORDER', 'SETTLEMENT', 'REFUND', 'DEPOSIT', 'WITHDRAWAL'
+  referenceId     String?
+
+  // Entry details
+  stablecoinType  StablecoinType
+  totalAmount     Decimal             @db.Decimal(20, 8) // Total of debits (should equal credits)
+
+  // Status
+  status          JournalEntryStatus  @default(DRAFT)
+  postedAt        DateTime?
+  postedBy        String?
+  reversedAt      DateTime?
+  reversedBy      String?
+  reversalEntryId String?             // If this entry was reversed, link to reversal
+
+  // Audit
+  createdBy       String?
+  approvedBy      String?
+  approvedAt      DateTime?
+
+  lines           JournalEntryLine[]
+
+  metadata        Json?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([entryNumber])
+  @@index([date])
+  @@index([referenceType, referenceId])
+  @@index([status])
+  @@index([stablecoinType])
+  @@map("journal_entries")
+}
+
+// Journal Entry Line - Individual debit/credit lines
+model JournalEntryLine {
+  id              String         @id @default(uuid())
+  journalEntryId  String
+  journalEntry    JournalEntry   @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  accountId       String
+  account         LedgerAccount  @relation(fields: [accountId], references: [id])
+
+  // Either debit or credit should be non-zero, not both
+  debitAmount     Decimal        @default(0) @db.Decimal(20, 8)
+  creditAmount    Decimal        @default(0) @db.Decimal(20, 8)
+
+  description     String?
+
+  createdAt       DateTime       @default(now())
+
+  @@index([journalEntryId])
+  @@index([accountId])
+  @@map("journal_entry_lines")
+}
+
+// Legacy LedgerEntry - Simple ledger for quick queries (denormalized)
+model LedgerEntry {
+  id              String            @id @default(uuid())
+  accountId       String
+  account         LedgerAccount     @relation(fields: [accountId], references: [id])
+
+  journalEntryId  String?           // Link to full journal entry
+
+  date            DateTime          @default(now())
+  description     String
+
+  // Reference
+  referenceType   String?
+  referenceId     String?
+
+  // Entry type
+  entryType       LedgerEntryType
+  stablecoinType  StablecoinType
+
+  // Amounts
+  debit           Decimal           @default(0) @db.Decimal(20, 8)
+  credit          Decimal           @default(0) @db.Decimal(20, 8)
+  balance         Decimal           @default(0) @db.Decimal(20, 8) // Running balance after this entry
+
+  // Audit
+  createdBy       String?
+
+  metadata        Json?
+  createdAt       DateTime          @default(now())
+
+  @@index([accountId])
+  @@index([date])
+  @@index([referenceType, referenceId])
+  @@index([entryType])
+  @@index([stablecoinType])
+  @@map("ledger_entries")
+}
+
+// Settlement - Payments made to merchants
+model Settlement {
+  id                String           @id @default(uuid())
+  settlementNumber  String           @unique // SET-2024-000001
+  sellerId          String
+  seller            Seller           @relation(fields: [sellerId], references: [id])
+
+  // Amount details
+  stablecoinType    StablecoinType
+  network           NetworkType
+  grossAmount       Decimal          @db.Decimal(20, 8) // Total sales amount
+  platformFee       Decimal          @db.Decimal(20, 8) // Commission deducted
+  networkFee        Decimal          @default(0) @db.Decimal(20, 8) // Gas/transaction fees
+  netAmount         Decimal          @db.Decimal(20, 8) // Amount sent to merchant
+
+  // Destination
+  walletAddress     String
+
+  // Transaction details
+  txHash            String?          @unique
+
+  // Status
+  status            SettlementStatus @default(PENDING)
+
+  // Period covered
+  periodStart       DateTime
+  periodEnd         DateTime
+
+  // Related orders
+  orderCount        Int              @default(0)
+
+  // Workflow
+  requestedAt       DateTime         @default(now())
+  requestedBy       String?
+  approvedAt        DateTime?
+  approvedBy        String?
+  processedAt       DateTime?
+  completedAt       DateTime?
+  failedAt          DateTime?
+  failureReason     String?
+
+  // Retry handling
+  retryCount        Int              @default(0)
+  nextRetryAt       DateTime?
+
+  // Links
+  journalEntryId    String?          // Link to accounting entry
+
+  // Items included in this settlement
+  items             SettlementItem[]
+
+  metadata          Json?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([sellerId])
+  @@index([status])
+  @@index([stablecoinType])
+  @@index([network])
+  @@index([periodStart, periodEnd])
+  @@index([txHash])
+  @@map("settlements")
+}
+
+// Settlement Item - Orders/transactions included in a settlement
+model SettlementItem {
+  id              String      @id @default(uuid())
+  settlementId    String
+  settlement      Settlement  @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+
+  orderId         String
+  orderNumber     String
+
+  grossAmount     Decimal     @db.Decimal(20, 8)
+  commission      Decimal     @db.Decimal(20, 8)
+  netAmount       Decimal     @db.Decimal(20, 8)
+
+  orderDate       DateTime
+
+  createdAt       DateTime    @default(now())
+
+  @@index([settlementId])
+  @@index([orderId])
+  @@map("settlement_items")
+}
+
+// Financial Period - For closing books and generating reports
+model FinancialPeriod {
+  id              String                @id @default(uuid())
+  name            String                // "January 2024", "Q1 2024", etc.
+  type            FinancialPeriodType   // MONTHLY, QUARTERLY, YEARLY
+
+  startDate       DateTime
+  endDate         DateTime
+
+  // Status
+  status          FinancialPeriodStatus @default(OPEN)
+  closedAt        DateTime?
+  closedBy        String?
+
+  // Summary totals (cached for performance)
+  totalRevenue    Decimal               @default(0) @db.Decimal(20, 8)
+  totalCOGS       Decimal               @default(0) @db.Decimal(20, 8) // Cost of goods sold (merchant payouts)
+  grossProfit     Decimal               @default(0) @db.Decimal(20, 8)
+  totalExpenses   Decimal               @default(0) @db.Decimal(20, 8)
+  netProfit       Decimal               @default(0) @db.Decimal(20, 8)
+
+  reports         FinancialReport[]
+
+  metadata        Json?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@unique([type, startDate])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("financial_periods")
+}
+
+// Financial Report - Generated reports
+model FinancialReport {
+  id              String              @id @default(uuid())
+  periodId        String?
+  period          FinancialPeriod?    @relation(fields: [periodId], references: [id])
+
+  type            FinancialReportType
+  name            String
+
+  // Date range (can be custom, not tied to period)
+  startDate       DateTime
+  endDate         DateTime
+
+  // Report data (JSON for flexibility)
+  data            Json
+
+  // Generation info
+  generatedAt     DateTime            @default(now())
+  generatedBy     String?
+
+  // Storage
+  fileUrl         String?             // If exported to file
+
+  metadata        Json?
+  createdAt       DateTime            @default(now())
+
+  @@index([periodId])
+  @@index([type])
+  @@index([startDate, endDate])
+  @@map("financial_reports")
+}
+
+// Reconciliation Record - For tracking balance reconciliations
+model ReconciliationRecord {
+  id                    String                @id @default(uuid())
+  date                  DateTime
+  stablecoinType        StablecoinType
+  network               NetworkType?
+
+  // System balances (from our database)
+  systemWalletBalance   Decimal               @db.Decimal(20, 8)
+  systemMerchantPayable Decimal               @db.Decimal(20, 8)
+  systemCustomerBalance Decimal               @db.Decimal(20, 8)
+
+  // Blockchain balance (actual on-chain)
+  blockchainBalance     Decimal               @db.Decimal(20, 8)
+
+  // Calculated
+  discrepancy           Decimal               @db.Decimal(20, 8)
+  isReconciled          Boolean               @default(false)
+
+  // Resolution
+  resolvedAt            DateTime?
+  resolvedBy            String?
+  resolutionNotes       String?
+  adjustmentEntryId     String?               // Journal entry for adjustment
+
+  metadata              Json?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  @@index([date])
+  @@index([stablecoinType])
+  @@index([network])
+  @@index([isReconciled])
+  @@map("reconciliation_records")
+}
+
+// Platform Revenue - Track all revenue sources
+model PlatformRevenue {
+  id              String          @id @default(uuid())
+  date            DateTime
+
+  // Source
+  revenueType     RevenueType
+  stablecoinType  StablecoinType
+
+  // Reference
+  referenceType   String?         // 'ORDER', 'API_FEE', 'WITHDRAWAL_FEE'
+  referenceId     String?
+  sellerId        String?
+
+  // Amounts
+  grossAmount     Decimal         @db.Decimal(20, 8) // Total order/transaction amount
+  revenueAmount   Decimal         @db.Decimal(20, 8) // Platform's cut
+
+  description     String?
+
+  journalEntryId  String?
+
+  metadata        Json?
+  createdAt       DateTime        @default(now())
+
+  @@index([date])
+  @@index([revenueType])
+  @@index([stablecoinType])
+  @@index([sellerId])
+  @@index([referenceType, referenceId])
+  @@map("platform_revenue")
+}
+
+// Accounting Enums
+enum LedgerAccountType {
+  ASSET           // Company wallets, receivables
+  LIABILITY       // Merchant payables, customer deposits
+  EQUITY          // Owner's equity, retained earnings
+  REVENUE         // Platform commissions, fees
+  EXPENSE         // Gas fees, operational costs
+  CONTRA_ASSET    // Accumulated depreciation (if any)
+  CONTRA_LIABILITY
+  CONTRA_REVENUE
+  CONTRA_EXPENSE
+}
+
+enum LedgerEntryType {
+  ORDER_RECEIVED      // Customer payment received
+  MERCHANT_PAYABLE    // Amount owed to merchant
+  COMMISSION_EARNED   // Platform commission
+  SETTLEMENT_PAID     // Settlement sent to merchant
+  REFUND_ISSUED       // Refund to customer
+  GAS_FEE             // Blockchain gas fees
+  WITHDRAWAL          // Company withdrawal
+  DEPOSIT             // External deposit
+  ADJUSTMENT          // Manual adjustment
+  OPENING_BALANCE     // Initial balance
+  CLOSING_ENTRY       // Period close entry
+}
+
+enum JournalEntryStatus {
+  DRAFT
+  PENDING_APPROVAL
+  POSTED
+  REVERSED
+}
+
+enum SettlementStatus {
+  PENDING           // Created, awaiting approval
+  APPROVED          // Approved, ready to process
+  PROCESSING        // Transaction submitted
+  COMPLETED         // Successfully paid
+  FAILED            // Transaction failed
+  CANCELLED         // Cancelled before processing
+  ON_HOLD           // Temporarily held
+}
+
+enum FinancialPeriodType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum FinancialPeriodStatus {
+  OPEN
+  CLOSING
+  CLOSED
+  ARCHIVED
+}
+
+enum FinancialReportType {
+  BALANCE_SHEET
+  INCOME_STATEMENT
+  CASH_FLOW
+  MERCHANT_SETTLEMENT_SUMMARY
+  REVENUE_BY_MERCHANT
+  REVENUE_BY_NETWORK
+  RECONCILIATION
+  TRIAL_BALANCE
+  GENERAL_LEDGER
+}
+
+enum RevenueType {
+  ORDER_COMMISSION      // Commission from orders
+  API_COMMISSION        // Commission from external API orders
+  WITHDRAWAL_FEE        // Withdrawal processing fees
+  LISTING_FEE           // Product listing fees (if any)
+  SUBSCRIPTION_FEE      // Merchant subscription fees (if any)
+  OTHER                 // Miscellaneous revenue
 }

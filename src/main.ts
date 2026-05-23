@@ -5,6 +5,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
 import compression from 'compression';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -18,6 +19,9 @@ async function bootstrap() {
 
   // Security
   app.use(helmet());
+
+  // Cookie parser - Required for CSRF protection
+  app.use(cookieParser());
 
   // CORS - Allow multiple origins including subdomains
   const allowedOrigins = [
@@ -38,27 +42,48 @@ async function bootstrap() {
     process.env.FRONTEND_URL,
   ].filter(Boolean);
 
+  // Stricter CORS configuration (SEC-BE-006)
   app.enableCors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, etc.)
+      // For requests without origin (server-to-server, mobile apps, Postman)
       if (!origin) {
+        // Note: Requests without origin are allowed but must be authenticated via:
+        // - ApiKeyGuard for external API endpoints
+        // - JwtAuthGuard for mobile app endpoints
+        // - Public endpoints (webhooks, health checks)
+        //
+        // This is necessary for:
+        // 1. Webhook callbacks from Stripe/Razorpay/Sumsub (no origin)
+        // 2. Server-to-server API key integrations
+        // 3. Mobile apps (React Native doesn't send Origin header)
+        //
+        // Protection: CsrfGuard only validates requests WITH origin (browser requests)
         return callback(null, true);
       }
 
-      // Check if origin is in allowed list or matches localhost/0xmart.com pattern
+      // For browser requests (always have Origin header), validate against whitelist
       if (
         allowedOrigins.includes(origin) ||
         origin.match(/^http:\/\/(.*\.)?localhost:3000$/) ||
+        origin.match(/^http:\/\/(.*\.)?localhost:5173$/) || // Mini app
         origin.match(/^https:\/\/(.*\.)?0xmart\.com$/)
       ) {
         callback(null, true);
       } else {
+        logger.log(`CORS blocked origin: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'X-CSRF-Token',
+      'X-API-Key',
+      'X-API-Secret',
+    ],
   });
 
   // Compression

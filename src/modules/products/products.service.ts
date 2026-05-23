@@ -299,30 +299,48 @@ export class ProductsService {
   }
 
   async getCategories() {
-    const categories = await this.prisma.product.findMany({
-      where: { status: ProductStatus.ACTIVE },
-      select: { category: true },
-      distinct: ['category'],
+    // Use groupBy instead of distinct for better performance
+    // This avoids full table scan and utilizes database indexes
+    const categories = await this.prisma.product.groupBy({
+      by: ['category'],
+      where: {
+        status: ProductStatus.ACTIVE,
+        category: { not: null }, // Exclude null categories
+      },
+      _count: {
+        category: true, // Optional: could return count per category
+      },
     });
 
-    return categories.map((p) => p.category).filter((c) => c !== null);
+    // Extract category names and sort alphabetically
+    return categories
+      .map((c) => c.category)
+      .filter((c) => c !== null)
+      .sort((a, b) => a.localeCompare(b));
   }
 
   async searchProducts(query: string, filters?: { category?: string; country?: string }) {
     const where: any = {
       status: ProductStatus.ACTIVE,
-      OR: [
+    };
+
+    // If query is provided and not empty, search across name/description/category
+    if (query && query.trim()) {
+      where.OR = [
         { name: { contains: query, mode: 'insensitive' } },
         { description: { contains: query, mode: 'insensitive' } },
         { category: { contains: query, mode: 'insensitive' } },
-      ],
-    };
+      ];
+    }
 
+    // If category filter is specified, apply it (overrides category in OR clause)
     if (filters?.category) {
-      where.category = filters.category;
+      where.category = { equals: filters.category, mode: 'insensitive' };
     }
 
     // Filter by available countries (same logic as findAll)
+    // REMOVED: Don't filter by country in search - AI chat shouldn't be restricted by region
+    // This allows OxLien to find all products regardless of region settings
     if (filters?.country) {
       // Show products that either:
       // 1. Are available worldwide (empty array)
@@ -335,10 +353,8 @@ export class ProductsService {
           ],
         },
       ];
-    } else {
-      // When no country specified, only show worldwide products
-      where.availableCountries = { equals: [] };
     }
+    // Note: When no country specified, show ALL products (removed restriction)
 
     const products = await this.prisma.product.findMany({
       where,

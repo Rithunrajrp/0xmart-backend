@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
+import { RateLimiterService } from '../redis/rate-limiter.service';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
@@ -28,9 +29,6 @@ interface UsageStats {
 @Injectable()
 export class ApiKeysService {
   private readonly logger = new Logger(ApiKeysService.name);
-
-  // In-memory rate limit tracking (use Redis in production)
-  private rateLimitCache = new Map<string, { count: number; resetAt: Date }>();
 
   // Subscription tier limits
   private readonly tierLimits = {
@@ -55,6 +53,7 @@ export class ApiKeysService {
   constructor(
     private prisma: PrismaService,
     private settingsService: SettingsService,
+    private rateLimiterService: RateLimiterService,
   ) {}
 
   /**
@@ -317,7 +316,7 @@ export class ApiKeysService {
     });
 
     // Clear rate limit cache for old key
-    this.rateLimitCache.delete(apiKeyId);
+    await this.rateLimiterService.resetRateLimit(`apikey:${apiKeyId}`);
 
     // Audit log
     await this.prisma.auditLog.create({
@@ -412,7 +411,7 @@ export class ApiKeysService {
     });
 
     // Clear rate limit cache
-    this.rateLimitCache.delete(apiKeyId);
+    await this.rateLimiterService.resetRateLimit(`apikey:${apiKeyId}`);
 
     // Create audit log
     await this.prisma.auditLog.create({
@@ -453,7 +452,7 @@ export class ApiKeysService {
     });
 
     // Clear rate limit cache
-    this.rateLimitCache.delete(apiKeyId);
+    await this.rateLimiterService.resetRateLimit(`apikey:${apiKeyId}`);
 
     // Create audit log
     await this.prisma.auditLog.create({
@@ -582,6 +581,7 @@ export class ApiKeysService {
 
   /**
    * Check rate limit for API key
+   * SEC-BE-004 FIX: Now uses Redis-based rate limiting (production-safe)
    */
   async checkRateLimit(apiKeyId: string): Promise<RateLimitResult> {
     const apiKey = await this.prisma.apiKey.findUnique({
@@ -592,42 +592,12 @@ export class ApiKeysService {
       throw new NotFoundException('API key not found');
     }
 
-    const now = new Date();
-    const cacheKey = `${apiKeyId}:minute`;
-    const cached = this.rateLimitCache.get(cacheKey);
-
-    // Reset if window expired
-    if (!cached || cached.resetAt < now) {
-      const resetAt = new Date(now.getTime() + 60000); // 1 minute window
-      this.rateLimitCache.set(cacheKey, { count: 1, resetAt });
-      return {
-        allowed: true,
-        remaining: apiKey.rateLimitPerMinute - 1,
-        resetAt,
-        limit: apiKey.rateLimitPerMinute,
-      };
-    }
-
-    // Check if exceeded
-    if (cached.count >= apiKey.rateLimitPerMinute) {
-      return {
-        allowed: false,
-        remaining: 0,
-        resetAt: cached.resetAt,
-        limit: apiKey.rateLimitPerMinute,
-      };
-    }
-
-    // Increment count
-    cached.count++;
-    this.rateLimitCache.set(cacheKey, cached);
-
-    return {
-      allowed: true,
-      remaining: apiKey.rateLimitPerMinute - cached.count,
-      resetAt: cached.resetAt,
-      limit: apiKey.rateLimitPerMinute,
-    };
+    // Use distributed rate limiter (Redis-backed)
+    return this.rateLimiterService.checkRateLimit(
+      `apikey:${apiKeyId}`,
+      apiKey.rateLimitPerMinute,
+      60, // 1 minute window
+    );
   }
 
   /**

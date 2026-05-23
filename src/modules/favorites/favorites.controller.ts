@@ -17,6 +17,7 @@ import {
 import { FavoritesService } from './favorites.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 
 @ApiTags('favorites')
 @ApiBearerAuth()
@@ -29,7 +30,7 @@ export class FavoritesController {
   @ApiOperation({ summary: 'Add product to favorites' })
   @ApiResponse({ status: 201 })
   addToFavorites(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('productId') productId: string,
   ) {
     return this.favoritesService.addToFavorites(user.id, productId);
@@ -39,7 +40,7 @@ export class FavoritesController {
   @ApiOperation({ summary: 'Remove product from favorites' })
   @ApiResponse({ status: 200 })
   removeFromFavorites(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('productId') productId: string,
   ) {
     return this.favoritesService.removeFromFavorites(user.id, productId);
@@ -51,7 +52,7 @@ export class FavoritesController {
   @ApiQuery({ name: 'limit', required: false })
   @ApiResponse({ status: 200 })
   getUserFavorites(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
@@ -62,7 +63,7 @@ export class FavoritesController {
   @ApiOperation({ summary: 'Check if product is in favorites' })
   @ApiResponse({ status: 200 })
   checkIsFavorite(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('productId') productId: string,
   ) {
     return this.favoritesService.checkIsFavorite(user.id, productId);
@@ -71,14 +72,14 @@ export class FavoritesController {
   @Get('product-ids')
   @ApiOperation({ summary: 'Get all favorite product IDs' })
   @ApiResponse({ status: 200 })
-  getFavoriteProductIds(@CurrentUser() user: any) {
+  getFavoriteProductIds(@CurrentUser() user: AuthenticatedUser) {
     return this.favoritesService.getFavoriteProductIds(user.id);
   }
 
   @Delete()
   @ApiOperation({ summary: 'Clear all favorites' })
   @ApiResponse({ status: 200 })
-  clearFavorites(@CurrentUser() user: any) {
+  clearFavorites(@CurrentUser() user: AuthenticatedUser) {
     return this.favoritesService.clearFavorites(user.id);
   }
 }

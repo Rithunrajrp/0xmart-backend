@@ -21,6 +21,7 @@ import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('reviews')
@@ -33,7 +34,7 @@ export class ReviewsController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Create a product review' })
   @ApiResponse({ status: 201, description: 'Review created successfully' })
-  create(@CurrentUser() user: any, @Body() createReviewDto: CreateReviewDto) {
+  create(@CurrentUser() user: AuthenticatedUser, @Body() createReviewDto: CreateReviewDto) {
     return this.reviewsService.create(user.id, createReviewDto);
   }
 
@@ -62,7 +63,7 @@ export class ReviewsController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'User reviews' })
   getMyReviews(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
@@ -87,7 +88,7 @@ export class ReviewsController {
   @ApiResponse({ status: 200, description: 'Review updated successfully' })
   update(
     @Param('id') id: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() updateReviewDto: UpdateReviewDto,
   ) {
     return this.reviewsService.update(id, user.id, updateReviewDto);
@@ -98,7 +99,7 @@ export class ReviewsController {
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Delete your review' })
   @ApiResponse({ status: 200, description: 'Review deleted successfully' })
-  remove(@Param('id') id: string, @CurrentUser() user: any) {
+  remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.reviewsService.remove(id, user.id);
   }
 

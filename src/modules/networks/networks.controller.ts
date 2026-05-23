@@ -23,6 +23,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('Networks')
@@ -82,9 +83,9 @@ export class NetworksController {
   async updateNetwork(
     @Param('network') network: string,
     @Body() updateDto: UpdateNetworkConfigDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.networksService.updateNetwork(network, updateDto, user.userId);
+    return this.networksService.updateNetwork(network, updateDto, user.id);
   }
 
   @Patch(':network/toggle')
@@ -106,12 +107,12 @@ export class NetworksController {
   async toggleNetwork(
     @Param('network') network: string,
     @Body() body: { isEnabled: boolean },
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.networksService.toggleNetwork(
       network,
       body.isEnabled,
-      user.userId,
+      user.id,
     );
   }
 
@@ -130,12 +131,12 @@ export class NetworksController {
   async updateContractDeployment(
     @Param('network') network: string,
     @Body() updateDto: UpdateContractDeploymentDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.networksService.updateContractDeployment(
       network,
       updateDto,
-      user.userId,
+      user.id,
     );
   }
 }

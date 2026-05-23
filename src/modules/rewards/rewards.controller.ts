@@ -11,6 +11,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { UserRole } from '@prisma/client';
 
 @ApiTags('rewards')
@@ -23,21 +24,21 @@ export class RewardsController {
   @Get('my-rewards')
   @ApiOperation({ summary: 'Get current user rewards' })
   @ApiResponse({ status: 200 })
-  getMyRewards(@CurrentUser() user: any, @Query('status') status?: string) {
+  getMyRewards(@CurrentUser() user: AuthenticatedUser, @Query('status') status?: string) {
     return this.rewardsService.getUserRewards(user.id, status);
   }
 
   @Get('statistics')
   @ApiOperation({ summary: 'Get reward statistics' })
   @ApiResponse({ status: 200 })
-  getStatistics(@CurrentUser() user: any) {
+  getStatistics(@CurrentUser() user: AuthenticatedUser) {
     return this.rewardsService.getRewardStatistics(user.id);
   }
 
   @Patch(':rewardId/claim')
   @ApiOperation({ summary: 'Claim a reward' })
   @ApiResponse({ status: 200 })
-  claimReward(@Param('rewardId') rewardId: string, @CurrentUser() user: any) {
+  claimReward(@Param('rewardId') rewardId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.rewardsService.claimReward(rewardId, user.id);
   }
 

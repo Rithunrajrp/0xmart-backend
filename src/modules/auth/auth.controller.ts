@@ -22,6 +22,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { Recaptcha } from '../../common/decorators/recaptcha.decorator';
 import { RecaptchaGuard } from '../../common/guards/recaptcha.guard';
+import { RateLimitGuard, RateLimit } from '../../common/guards/rate-limit.guard';
 import { AuthResponseEntity } from './entities/auth-response.entity';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { CheckMerchantStatusDto } from './dto/check-merchant-status.dto';
@@ -45,28 +46,44 @@ export class AuthController {
 
   @Public()
   @Recaptcha('OTP_REQUEST')
-  @UseGuards(RecaptchaGuard)
+  @UseGuards(RecaptchaGuard, RateLimitGuard)
+  @RateLimit({
+    limit: 3,
+    ttl: 3600,
+    keyType: 'custom',
+    customKeyField: 'identifier',
+    message: 'Too many OTP requests. Please try again later.',
+  })
   @Post('send-otp')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Send OTP to email (and phone if configured) - Requires reCAPTCHA' })
+  @ApiOperation({ summary: 'Send OTP to email (and phone if configured) - Requires reCAPTCHA - Rate limited: 3 per hour per identifier' })
   @ApiResponse({ status: 200, description: 'OTP sent successfully' })
   @ApiResponse({ status: 400, description: 'Bad request or reCAPTCHA failed' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   sendOtp(@Body() sendOtpDto: SendOtpDto) {
     return this.authService.sendOtp(sendOtpDto);
   }
 
   @Public()
   @Recaptcha('LOGIN')
-  @UseGuards(RecaptchaGuard)
+  @UseGuards(RecaptchaGuard, RateLimitGuard)
+  @RateLimit({
+    limit: 10,
+    ttl: 3600,
+    keyType: 'custom',
+    customKeyField: 'identifier',
+    message: 'Too many OTP verification attempts. Please try again later.',
+  })
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify OTP and login/register - Requires reCAPTCHA' })
+  @ApiOperation({ summary: 'Verify OTP and login/register - Requires reCAPTCHA - Rate limited: 10 per hour per identifier' })
   @ApiResponse({
     status: 200,
     description: 'Login successful',
     type: AuthResponseEntity,
   })
   @ApiResponse({ status: 400, description: 'Invalid OTP or reCAPTCHA failed' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   async verifyOtp(@Body() verifyOtpDto: VerifyOtpDto) {
     return this.authService.verifyOtp(verifyOtpDto);
   }

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -9,6 +10,7 @@ import { WalletsService } from '../wallets/wallets.service';
 import { RewardsService } from '../rewards/rewards.service';
 import { UserManagementService } from '../user-management/user-management.service';
 import { EmailService } from '../auth/services/email.service';
+import { PaymentDistributionService } from './services/payment-distribution.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import {
@@ -29,6 +31,7 @@ export class OrdersService {
     private rewardsService: RewardsService,
     private userManagementService: UserManagementService,
     private emailService: EmailService,
+    private paymentDistributionService: PaymentDistributionService,
   ) {}
 
   private generateOrderNumber(): string {
@@ -83,12 +86,8 @@ export class OrdersService {
         );
 
         if (!isWorldwide && !isAvailableInCountry) {
-          const availableCountriesStr = availableCountries.length > 0
-            ? availableCountries.join(', ')
-            : 'worldwide';
           throw new BadRequestException(
-            `Product "${product.name}" cannot be shipped to ${shippingCountry}. ` +
-            `Available countries: ${availableCountriesStr}`
+            `Some products can't be shipped to ${shippingCountry}. Please remove them from your cart or select a different shipping country.`
           );
         }
       }
@@ -152,9 +151,38 @@ export class OrdersService {
     // For deposit payments, process payment immediately in a transaction
     // For smart contract payments, create order and wait for blockchain confirmation
     if (!isSmartContractPayment && wallet) {
-      // Deposit payment: Process everything in a single transaction
-      const order = await this.prisma.$transaction(async (tx) => {
-        // Create order with CONFIRMED status since we're processing payment now
+      // SEC-BE-007 FIX: Add proper error handling with transaction rollback
+      const previousBalance = wallet.balance;
+      let order;
+
+      try {
+        // Deposit payment: Process everything in a single transaction with proper rollback
+        order = await this.prisma.$transaction(async (tx) => {
+        // SEC-BE-006 FIX: Use SELECT FOR UPDATE to lock wallet row and prevent race conditions
+        // This ensures atomicity: no other transaction can read/modify this wallet until we commit
+        const currentWallet = await tx.$queryRaw<Array<{ id: string; balance: any; lockedBalance: any }>>`
+          SELECT id, balance, "lockedBalance"
+          FROM "Wallet"
+          WHERE id = ${wallet.id}
+          FOR UPDATE
+        `;
+
+        if (!currentWallet || currentWallet.length === 0) {
+          throw new BadRequestException('Wallet not found');
+        }
+
+        const walletData = currentWallet[0];
+        const availableBalance = new Decimal(walletData.balance.toString()).sub(
+          new Decimal(walletData.lockedBalance.toString()),
+        );
+
+        if (availableBalance.lessThan(total)) {
+          throw new BadRequestException(
+            `Insufficient balance. Required: ${total.toString()} ${stablecoinType}, Available: ${availableBalance.toString()} ${stablecoinType}`,
+          );
+        }
+
+        // 2. Create order with CONFIRMED status
         const newOrder = await tx.order.create({
           data: {
             userId,
@@ -189,21 +217,13 @@ export class OrdersService {
           },
         });
 
-        // Deduct from wallet balance
-        await tx.wallet.update({
-          where: { id: wallet.id },
-          data: {
-            balance: { decrement: total },
-          },
-        });
-
-        // Create completed transaction record
-        await tx.transaction.create({
+        // 3. Create transaction record BEFORE deducting balance (with PENDING status)
+        const transaction = await tx.transaction.create({
           data: {
             userId,
             orderId: newOrder.id,
             type: TransactionType.PURCHASE,
-            status: TransactionStatus.COMPLETED,
+            status: TransactionStatus.PENDING,
             stablecoinType,
             network: wallet.network,
             amount: total,
@@ -211,17 +231,72 @@ export class OrdersService {
           },
         });
 
+        // 4. Deduct from wallet balance (this happens last, so rollback is automatic if it fails)
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: {
+            balance: { decrement: total },
+          },
+        });
+
+        // 5. Update transaction status to COMPLETED
+        await tx.transaction.update({
+          where: { id: transaction.id },
+          data: { status: TransactionStatus.COMPLETED },
+        });
+
         return newOrder;
+      }, {
+        timeout: 10000, // 10 second timeout
+        maxWait: 15000, // Maximum time to wait for transaction to start
+        isolationLevel: 'Serializable', // SEC-BE-007 FIX: Strictest isolation level
       });
 
-      this.logger.log(`Deposit payment order created and confirmed: ${order.orderNumber}`);
+        this.logger.log(`Deposit payment order created and confirmed: ${order.orderNumber}`);
 
-      // Process rewards and user type upgrades asynchronously
-      this.processPostOrderRewards(order).catch((error) => {
-        this.logger.error(`Failed to process rewards for order ${order.id}`, error);
-      });
+        // Distribute payment to merchant and platform owner asynchronously
+        this.paymentDistributionService.distributeOrderPayment(order).catch((error) => {
+          this.logger.error(`Failed to distribute payment for order ${order.id}`, error);
+          // Note: Order is already confirmed, but payment distribution failed
+          // This should trigger manual intervention or retry logic
+        });
 
-      return order;
+        // Process rewards and user type upgrades asynchronously
+        this.processPostOrderRewards(order).catch((error) => {
+          this.logger.error(`Failed to process rewards for order ${order.id}`, error);
+        });
+
+        return order;
+      } catch (error) {
+        // SEC-BE-007 FIX: Transaction automatically rolled back on error
+        this.logger.error('Order transaction failed, automatically rolled back', error);
+
+        // Verify rollback worked (balance should be unchanged)
+        const walletAfterError = await this.prisma.wallet.findUnique({
+          where: { id: wallet.id },
+          select: { balance: true },
+        });
+
+        if (walletAfterError && walletAfterError.balance.toString() !== previousBalance.toString()) {
+          // CRITICAL: Rollback failed, manual intervention needed
+          this.logger.error(
+            `🔴 CRITICAL: Transaction rollback verification failed for wallet ${wallet.id}`,
+            {
+              expectedBalance: previousBalance.toString(),
+              actualBalance: walletAfterError.balance.toString(),
+              userId,
+              error: error.message,
+            },
+          );
+
+          // TODO: Send alert to admins via notification service
+          // await this.notificationService.sendCriticalAlert(...)
+        }
+
+        throw new BadRequestException(
+          'Order creation failed. Your balance has not been affected. Please try again.',
+        );
+      }
     } else {
       // Smart contract payment: Create order with PAYMENT_PENDING status
       const order = await this.prisma.order.create({
@@ -278,7 +353,7 @@ export class OrdersService {
     }
   }
 
-  async confirmPayment(orderId: string) {
+  async confirmPayment(orderId: string, userId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { items: true },
@@ -286,6 +361,11 @@ export class OrdersService {
 
     if (!order) {
       throw new NotFoundException('Order not found');
+    }
+
+    // Verify ownership - CRITICAL SECURITY CHECK
+    if (order.userId !== userId) {
+      throw new ForbiddenException('You do not have permission to confirm this order');
     }
 
     if (order.status !== OrderStatus.PAYMENT_PENDING) {
@@ -341,6 +421,21 @@ export class OrdersService {
     ]);
 
     this.logger.log(`Payment confirmed for order: ${order.orderNumber}`);
+
+    // Get updated order with items for payment distribution
+    const orderWithItems = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+
+    // Distribute payment to merchant and platform owner asynchronously
+    if (orderWithItems) {
+      this.paymentDistributionService.distributeOrderPayment(orderWithItems).catch((error) => {
+        this.logger.error(`Failed to distribute payment for order ${orderId}`, error);
+        // Note: Order is already confirmed, but payment distribution failed
+        // This should trigger manual intervention or retry logic
+      });
+    }
 
     // Process rewards and user type upgrades asynchronously
     this.processPostOrderRewards(order).catch((error) => {
@@ -533,6 +628,7 @@ export class OrdersService {
                 id: true,
                 name: true,
                 imageUrl: true,
+                images: true,
                 description: true,
               },
             },

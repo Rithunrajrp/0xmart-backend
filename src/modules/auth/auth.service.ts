@@ -73,7 +73,7 @@ export class AuthService {
     // Both are new - allow registration
 
     // Generate OTP for email
-    const emailOtp = this.otpService.storeOtp(normalizedEmail, 'email');
+    const emailOtp = await this.otpService.storeOtp(normalizedEmail, 'email');
 
     // Extract first name from email or use default
     const firstName = email.split('@')[0];
@@ -86,7 +86,7 @@ export class AuthService {
 
     // If SMS failed or Twilio is not enabled, use dev mode with logged OTP
     if (!smsSent) {
-      const phoneOtp = this.otpService.storeOtp(fullPhoneNumber, 'phone');
+      const phoneOtp = await this.otpService.storeOtp(fullPhoneNumber, 'phone');
       this.logger.log(`[DEV MODE] Phone OTP for ${fullPhoneNumber}: ${phoneOtp}`);
       this.logger.log(`[DEV MODE] Use this OTP for phone verification in development/testing`);
     }
@@ -109,7 +109,7 @@ export class AuthService {
     const fullPhoneNumber = `${countryCode}${phoneNumber}`;
 
     // Verify email OTP
-    const isEmailOtpValid = this.otpService.verifyOtp(
+    const isEmailOtpValid = await this.otpService.verifyOtp(
       normalizedEmail,
       emailOtp,
       'email',
@@ -128,7 +128,7 @@ export class AuthService {
       // If Twilio verification failed, fall back to local OTP (for test account scenarios)
       if (!isPhoneOtpValid) {
         this.logger.log(`[DEV MODE] Twilio verification failed, trying local OTP for ${fullPhoneNumber}`);
-        isPhoneOtpValid = this.otpService.verifyOtp(
+        isPhoneOtpValid = await this.otpService.verifyOtp(
           fullPhoneNumber,
           phoneOtp,
           'phone',
@@ -136,7 +136,7 @@ export class AuthService {
       }
     } else {
       // Development mode - use local OTP service
-      isPhoneOtpValid = this.otpService.verifyOtp(
+      isPhoneOtpValid = await this.otpService.verifyOtp(
         fullPhoneNumber,
         phoneOtp,
         'phone',
@@ -158,8 +158,8 @@ export class AuthService {
       const isOxMartEmail = normalizedEmail.endsWith('@0xmart.com');
       const userRole = isOxMartEmail ? 'ADMIN' : 'USER';
 
-      // Generate unique referral code
-      const referralCode = await this.generateUniqueReferralCode();
+      // Generate unique referral code from email
+      const referralCode = await this.generateUniqueReferralCode(normalizedEmail);
 
       user = await this.prisma.user.create({
         data: {
@@ -259,15 +259,30 @@ export class AuthService {
   }
 
   /**
-   * Generate unique referral code for a user
+   * Generate unique referral code from email
+   * Format: email prefix + random number (e.g., john123, alice456)
+   * Uses the part before @ in email address
    */
-  private async generateUniqueReferralCode(): Promise<string> {
+  private async generateUniqueReferralCode(email: string): Promise<string> {
+    // Extract username from email (part before @)
+    const emailPrefix = email.split('@')[0].toLowerCase();
+
+    // Clean the prefix: remove special characters, keep only alphanumeric
+    const cleanPrefix = emailPrefix.replace(/[^a-z0-9]/g, '').substring(0, 15);
+
     let referralCode: string;
     let isUnique = false;
+    let attempt = 0;
 
     while (!isUnique) {
-      // Generate a 8-character alphanumeric code
-      referralCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      // Try without number first, then add random numbers
+      if (attempt === 0) {
+        referralCode = cleanPrefix.toUpperCase();
+      } else {
+        // Add 3-digit random number
+        const randomNum = Math.floor(100 + Math.random() * 900);
+        referralCode = `${cleanPrefix}${randomNum}`.toUpperCase();
+      }
 
       // Check if this code already exists
       const existingUser = await this.prisma.user.findUnique({
@@ -277,6 +292,8 @@ export class AuthService {
       if (!existingUser) {
         isUnique = true;
       }
+
+      attempt++;
     }
 
     return referralCode!;

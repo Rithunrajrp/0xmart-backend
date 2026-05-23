@@ -22,6 +22,8 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import * as AuthTypes from '../../common/interfaces/authenticated-user.interface';
+type AuthenticatedUser = AuthTypes.AuthenticatedUser;
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole, OrderStatus } from '@prisma/client';
 import { OrderEntity } from './entities/order.entity';
@@ -36,15 +38,15 @@ export class OrdersController {
   @Post()
   @ApiOperation({ summary: 'Create new order' })
   @ApiResponse({ status: 201, type: OrderEntity })
-  create(@CurrentUser() user: any, @Body() createOrderDto: CreateOrderDto) {
+  create(@CurrentUser() user: AuthenticatedUser, @Body() createOrderDto: CreateOrderDto) {
     return this.ordersService.create(user.id, createOrderDto);
   }
 
   @Post(':id/confirm-payment')
   @ApiOperation({ summary: 'Confirm order payment (Process payment)' })
   @ApiResponse({ status: 200 })
-  confirmPayment(@Param('id') id: string) {
-    return this.ordersService.confirmPayment(id);
+  confirmPayment(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.ordersService.confirmPayment(id, user.id);
   }
 
   @Get()
@@ -54,7 +56,7 @@ export class OrdersController {
   @ApiQuery({ name: 'limit', required: false })
   @ApiResponse({ status: 200 })
   findAll(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('status') status?: OrderStatus,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
@@ -65,14 +67,14 @@ export class OrdersController {
   @Get(':id')
   @ApiOperation({ summary: 'Get order by ID' })
   @ApiResponse({ status: 200, type: OrderEntity })
-  findOne(@Param('id') id: string, @CurrentUser() user: any) {
+  findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.ordersService.findOne(id, user.id);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Cancel order' })
   @ApiResponse({ status: 200 })
-  cancelOrder(@Param('id') id: string, @CurrentUser() user: any) {
+  cancelOrder(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.ordersService.cancelOrder(id, user.id);
   }
 

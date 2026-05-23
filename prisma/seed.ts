@@ -1239,8 +1239,6 @@ Used by personal trainers and recommended by fitness professionals worldwide.`,
     data: [
       { productId: product1.id, stablecoinType: StablecoinType.USDT, price: new Decimal('1299.99') },
       { productId: product1.id, stablecoinType: StablecoinType.USDC, price: new Decimal('1299.99') },
-      { productId: product1.id, stablecoinType: StablecoinType.DAI, price: new Decimal('1299.99') },
-      { productId: product1.id, stablecoinType: StablecoinType.BUSD, price: new Decimal('1299.99') },
     ],
   });
 
@@ -1249,8 +1247,6 @@ Used by personal trainers and recommended by fitness professionals worldwide.`,
     data: [
       { productId: product2.id, stablecoinType: StablecoinType.USDT, price: new Decimal('899.99') },
       { productId: product2.id, stablecoinType: StablecoinType.USDC, price: new Decimal('899.99') },
-      { productId: product2.id, stablecoinType: StablecoinType.DAI, price: new Decimal('899.99') },
-      { productId: product2.id, stablecoinType: StablecoinType.BUSD, price: new Decimal('899.99') },
     ],
   });
 
@@ -1259,8 +1255,6 @@ Used by personal trainers and recommended by fitness professionals worldwide.`,
     data: [
       { productId: product3.id, stablecoinType: StablecoinType.USDT, price: new Decimal('179.99') },
       { productId: product3.id, stablecoinType: StablecoinType.USDC, price: new Decimal('179.99') },
-      { productId: product3.id, stablecoinType: StablecoinType.DAI, price: new Decimal('179.99') },
-      { productId: product3.id, stablecoinType: StablecoinType.BUSD, price: new Decimal('179.99') },
     ],
   });
 
@@ -1269,8 +1263,6 @@ Used by personal trainers and recommended by fitness professionals worldwide.`,
     data: [
       { productId: product4.id, stablecoinType: StablecoinType.USDT, price: new Decimal('129.00') },
       { productId: product4.id, stablecoinType: StablecoinType.USDC, price: new Decimal('129.00') },
-      { productId: product4.id, stablecoinType: StablecoinType.DAI, price: new Decimal('129.00') },
-      { productId: product4.id, stablecoinType: StablecoinType.BUSD, price: new Decimal('129.00') },
     ],
   });
 
@@ -1279,8 +1271,6 @@ Used by personal trainers and recommended by fitness professionals worldwide.`,
     data: [
       { productId: product5.id, stablecoinType: StablecoinType.USDT, price: new Decimal('249.00') },
       { productId: product5.id, stablecoinType: StablecoinType.USDC, price: new Decimal('249.00') },
-      { productId: product5.id, stablecoinType: StablecoinType.DAI, price: new Decimal('249.00') },
-      { productId: product5.id, stablecoinType: StablecoinType.BUSD, price: new Decimal('249.00') },
     ],
   });
 
@@ -1289,8 +1279,6 @@ Used by personal trainers and recommended by fitness professionals worldwide.`,
     data: [
       { productId: product6.id, stablecoinType: StablecoinType.USDT, price: new Decimal('599.00') },
       { productId: product6.id, stablecoinType: StablecoinType.USDC, price: new Decimal('599.00') },
-      { productId: product6.id, stablecoinType: StablecoinType.DAI, price: new Decimal('599.00') },
-      { productId: product6.id, stablecoinType: StablecoinType.BUSD, price: new Decimal('599.00') },
     ],
   });
 
@@ -1299,8 +1287,6 @@ Used by personal trainers and recommended by fitness professionals worldwide.`,
     data: [
       { productId: product7.id, stablecoinType: StablecoinType.USDT, price: new Decimal('189.00') },
       { productId: product7.id, stablecoinType: StablecoinType.USDC, price: new Decimal('189.00') },
-      { productId: product7.id, stablecoinType: StablecoinType.DAI, price: new Decimal('189.00') },
-      { productId: product7.id, stablecoinType: StablecoinType.BUSD, price: new Decimal('189.00') },
     ],
   });
 
@@ -1309,8 +1295,6 @@ Used by personal trainers and recommended by fitness professionals worldwide.`,
     data: [
       { productId: product8.id, stablecoinType: StablecoinType.USDT, price: new Decimal('39.99') },
       { productId: product8.id, stablecoinType: StablecoinType.USDC, price: new Decimal('39.99') },
-      { productId: product8.id, stablecoinType: StablecoinType.DAI, price: new Decimal('39.99') },
-      { productId: product8.id, stablecoinType: StablecoinType.BUSD, price: new Decimal('39.99') },
     ],
   });
 
@@ -1319,8 +1303,6 @@ Used by personal trainers and recommended by fitness professionals worldwide.`,
     data: [
       { productId: product9.id, stablecoinType: StablecoinType.USDT, price: new Decimal('34.99') },
       { productId: product9.id, stablecoinType: StablecoinType.USDC, price: new Decimal('34.99') },
-      { productId: product9.id, stablecoinType: StablecoinType.DAI, price: new Decimal('34.99') },
-      { productId: product9.id, stablecoinType: StablecoinType.BUSD, price: new Decimal('34.99') },
     ],
   });
 
@@ -1329,8 +1311,6 @@ Used by personal trainers and recommended by fitness professionals worldwide.`,
     data: [
       { productId: product10.id, stablecoinType: StablecoinType.USDT, price: new Decimal('49.99') },
       { productId: product10.id, stablecoinType: StablecoinType.USDC, price: new Decimal('49.99') },
-      { productId: product10.id, stablecoinType: StablecoinType.DAI, price: new Decimal('49.99') },
-      { productId: product10.id, stablecoinType: StablecoinType.BUSD, price: new Decimal('49.99') },
     ],
   });
 
@@ -1339,12 +1319,10 @@ Used by personal trainers and recommended by fitness professionals worldwide.`,
     data: [
       { productId: product11.id, stablecoinType: StablecoinType.USDT, price: new Decimal('349.00') },
       { productId: product11.id, stablecoinType: StablecoinType.USDC, price: new Decimal('349.00') },
-      { productId: product11.id, stablecoinType: StablecoinType.DAI, price: new Decimal('349.00') },
-      { productId: product11.id, stablecoinType: StablecoinType.BUSD, price: new Decimal('349.00') },
     ],
   });
 
-  console.log(`✅ Created prices for ${11} products in 4 stablecoins`);
+  console.log(`✅ Created prices for ${11} products in 2 stablecoins`);
   console.log('');
 
   // ============================================
@@ -1466,7 +1444,7 @@ Used by personal trainers and recommended by fitness professionals worldwide.`,
   console.log('📊 Summary:');
   console.log(`   • Sellers: 5`);
   console.log(`   • Products: 11`);
-  console.log(`   • Product Prices: 44 (11 products × 4 stablecoins)`);
+  console.log(`   • Product Prices: 22 (11 products × 2 stablecoins)`);
   console.log(`   • Reviews: 8`);
   console.log('');
   console.log('📦 Categories created:');
@@ -1477,7 +1455,7 @@ Used by personal trainers and recommended by fitness professionals worldwide.`,
   console.log('   • Sports & Fitness (Yoga, Strength Training)');
   console.log('');
   console.log('💰 All products priced in:');
-  console.log('   • USDT, USDC, DAI, BUSD');
+  console.log('   • USDT, USDC');
   console.log('');
   console.log('🎉 Ready for testing!');
 }
